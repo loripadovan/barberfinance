@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BarberFinance — Gestão Financeira da Rede</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBvbHlnb24gcG9pbnRzPSIxNiwxIDI5LDggMjksMjQgMTYsMzEgMywyNCAzLDgiIGZpbGw9IiNDOUEyMjciLz48dGV4dCB4PSIxNiIgeT0iMjEiIGZvbnQtZmFtaWx5PSJBcmlhbCxzYW5zLXNlcmlmIiBmb250LXNpemU9IjExIiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjMUExMDA4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5CRjwvdGV4dD48L3N2Zz4=">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -13,13 +14,17 @@
 /* ===== RESET & BASE ===== */
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
+  /* Paleta Clean Light — creme moderno */
   --g1:#1D9E75;--g2:#0F6E56;--g3:#E1F5EE;
-  --r1:#A32D2D;--a1:#854F0B;--a2:#FAEEDA;
-  --bg:#ffffff;--bg2:#F7F7F6;--bg3:#EFEFED;
-  --border:#E5E4E0;--border2:#D4D3CF;
-  --text:#1A1A18;--text2:#6B6B68;--text3:#9B9B97;
+  --r1:#A32D2D;--a1:#854F0B;--a2:#FBF0D9;
+  /* Fundos: creme suave em vez de branco frio */
+  --bg:#FAFAF8;--bg2:#F2EFE9;--bg3:#E8E3DA;
+  --border:#DDD8CE;--border2:#CBC5BB;
+  --text:#1A1008;--text2:#6B5A4A;--text3:#A09080;
   --radius:8px;--radius-sm:6px;--radius-lg:12px;
-  --shadow:0 1px 3px rgba(0,0,0,.08);
+  --shadow:0 1px 4px rgba(26,16,8,.07);
+  /* Acento marrom D'La Costa */
+  --brand:#2C1A0E;--brand2:#4A2C14;--brand3:#F5F0E8;
 }
 /* ===== TEMA ESCURO ===== */
 [data-theme="dark"]{
@@ -38,15 +43,15 @@
 [data-theme="dark"] input[type=password]{background:var(--bg2);color:var(--text);border-color:var(--border)}
 [data-theme="dark"] .modal{background:#1C1C1C}
 [data-theme="dark"] .loading-overlay{background:rgba(20,20,20,.85)}
-[data-theme="dark"] .login-screen{background:#141414}
+[data-theme="dark"] .login-screen{background:#0E0804}
 [data-theme="dark"] .login-card{background:#1C1C1C;border-color:var(--border)}
 [data-theme="dark"] mark{background:#7A6B20;color:#F0F0EE}
 [data-theme="dark"] .saude-bar-wrap{background:var(--bg3)}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--text);font-size:14px;background:var(--bg)}
+body{font-family:Arial,'Helvetica Neue',sans-serif;color:var(--text);font-size:14px;background:var(--bg)}
 
 /* ===== LAYOUT ===== */
 .app{display:flex;height:100vh}
-.sidebar{width:220px;min-width:220px;border-right:1px solid var(--border);display:flex;flex-direction:column;padding:1rem 0;background:var(--bg2);overflow-y:auto;transition:width .25s ease,min-width .25s ease}
+.sidebar{width:220px;min-width:220px;border-right:1px solid var(--border);display:flex;flex-direction:column;padding:1rem 0;background:#FFFFFF;overflow-y:auto;transition:width .25s ease,min-width .25s ease}
 .sidebar.collapsed{width:52px;min-width:52px;overflow:hidden}
 .sidebar.collapsed .logo-title,.sidebar.collapsed .logo-sub,
 .sidebar.collapsed .nav-sec,.sidebar.collapsed .nav-item span,
@@ -57,41 +62,41 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:va
 .sidebar-toggle{display:flex;align-items:center;justify-content:flex-end;padding:0 10px 6px;cursor:pointer;color:var(--text3);font-size:18px;border:none;background:none;width:100%;transition:color .15s}
 .sidebar-toggle:hover{color:var(--g1)}
 .sidebar.collapsed .sidebar-toggle{justify-content:center;padding:0 0 6px}
-.main{flex:1;overflow-y:auto;background:var(--bg)}
+.main{flex:1;overflow-y:auto;background:var(--bg2)}
 .content{padding:1.5rem}
 .page{display:none}.page.active{display:block}
-.topbar{padding:.875rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;background:var(--bg);z-index:10}
-.topbar-title{font-size:15px;font-weight:600}
+.topbar{padding:.875rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;background:#FFFFFF;z-index:10;box-shadow:0 1px 0 var(--border)}
+.topbar-title{font-size:15px;font-weight:700;color:var(--brand)}
 .topbar-sub{font-size:12px;color:var(--text2);margin-top:1px}
 .topbar-right{display:flex;gap:8px;align-items:center;flex-shrink:0;flex-wrap:wrap}
 
 /* ===== SIDEBAR ===== */
 .logo{padding:0 1rem 1rem;border-bottom:1px solid var(--border);margin-bottom:.5rem}
-.logo-title{font-size:15px;font-weight:600}
-.logo-sub{font-size:11px;color:var(--text2);margin-top:2px}
-.nav-sec{padding:.5rem 1rem;font-size:10px;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-top:.5rem}
-.nav-item{display:flex;align-items:center;gap:8px;padding:7px 1rem;cursor:pointer;font-size:13px;color:var(--text2);transition:background .15s;border-right:2px solid transparent}
-.nav-item:hover{background:var(--bg);color:var(--text)}
-.nav-item.active{background:var(--bg);color:var(--g1);font-weight:500;border-right-color:var(--g1)}
+.logo-title{font-size:15px;font-weight:600;color:var(--brand)}
+.logo-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.nav-sec{padding:.5rem 1rem;font-size:10px;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;margin-top:.75rem;font-weight:600}
+.nav-item{display:flex;align-items:center;gap:8px;padding:7px 1rem;cursor:pointer;font-size:13px;color:var(--text2);transition:background .15s;border-right:2px solid transparent;border-radius:6px 0 0 6px;margin:0 0 1px}
+.nav-item:hover{background:var(--bg2);color:var(--text)}
+.nav-item.active{background:var(--brand3);color:var(--brand);font-weight:600;border-right-color:var(--brand)}
 .nav-item.dim{opacity:.4;pointer-events:none}
 .nav-item i{font-size:16px;flex-shrink:0}
 .nav-badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:10px;background:var(--g3);color:var(--g2);margin-left:auto}
 .nav-badge.red{background:#FCEBEB;color:var(--r1)}
 
 /* ===== COMPONENTES ===== */
-.card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:1rem}
+.card{background:#FFFFFF;border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:1rem;box-shadow:0 1px 3px rgba(26,16,8,.05)}
 .card-title{font-size:12px;font-weight:500;color:var(--text2);margin-bottom:.875rem;display:flex;align-items:center;gap:6px}
 
 .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:1.25rem}
-.stat{background:var(--bg2);border-radius:var(--radius);padding:.875rem 1rem;border:1px solid var(--border)}
-.stat-label{font-size:11px;color:var(--text2);margin-bottom:3px}
-.stat-value{font-size:18px;font-weight:600}
+.stat{background:#FFFFFF;border-radius:var(--radius);padding:.875rem 1rem;border:1px solid var(--border);box-shadow:0 1px 2px rgba(26,16,8,.04)}
+.stat-label{font-size:11px;color:var(--text2);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em}
+.stat-value{font-size:20px;font-weight:700}
 .stat-value.g{color:var(--g1)}.stat-value.r{color:var(--r1)}.stat-value.a{color:var(--a1)}
 .stat-delta{font-size:11px;margin-top:3px;color:var(--text3)}
 
 .btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:var(--radius-sm);font-size:13px;cursor:pointer;border:1px solid var(--border);background:var(--bg);color:var(--text);transition:all .15s;white-space:nowrap}
 .btn:hover{background:var(--bg2)}.btn:disabled{opacity:.5;cursor:default}
-.btn.primary{background:var(--g1);border-color:var(--g1);color:#fff}.btn.primary:hover{background:var(--g2)}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#F5F0E8}.btn.primary:hover{background:var(--brand2)}
 .btn.danger{color:var(--r1);border-color:#F0AAAA}.btn.danger:hover{background:#FCEBEB}
 .btn.sm{padding:5px 10px;font-size:12px}
 
@@ -111,7 +116,7 @@ select:focus,input:focus{border-color:var(--g1);box-shadow:0 0 0 2px rgba(29,158
 .field-row.three{grid-template-columns:1fr 1fr 1fr}
 
 table{width:100%;border-collapse:collapse;font-size:13px}
-thead th{padding:8px 10px;text-align:left;font-size:12px;font-weight:500;color:var(--text2);border-bottom:1px solid var(--border);white-space:nowrap}
+thead th{padding:9px 10px;text-align:left;font-size:11px;font-weight:600;color:var(--text2);border-bottom:1px solid var(--border);white-space:nowrap;text-transform:uppercase;letter-spacing:.04em;background:var(--bg2)}
 tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
 tbody tr:hover{background:var(--bg2)}
 tbody td{padding:8px 10px}
@@ -244,15 +249,15 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
 @media(max-width:700px){.cal-day{min-height:60px;font-size:10px}.cal-event{font-size:9px}}
 
 /* LOGIN */
-.login-screen{position:fixed;inset:0;background:var(--bg2);display:flex;align-items:center;justify-content:center;z-index:500}
-.login-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:2rem;width:100%;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,.08)}
+.login-screen{position:fixed;inset:0;background:#1A1008;display:flex;align-items:center;justify-content:center;z-index:500}
+.login-card{background:#FFFFFF;border:1px solid var(--border);border-radius:var(--radius-lg);padding:2rem;width:100%;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,.3)}
 .login-logo{text-align:center;margin-bottom:1.5rem}
 .login-logo-title{font-size:22px;font-weight:700}
 .login-logo-sub{font-size:12px;color:var(--text2);margin-top:4px}
 .login-card .field-group{margin-bottom:1rem}
 .login-card input{font-size:14px;padding:10px 12px}
-.login-btn{width:100%;padding:10px;background:var(--g1);color:#fff;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;transition:background .15s}
-.login-btn:hover{background:var(--g2)}
+.login-btn{width:100%;padding:10px;background:var(--brand);color:#F5F0E8;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;transition:background .15s}
+.login-btn:hover{background:var(--brand2)}
 .login-error{font-size:12px;color:var(--r1);margin-top:8px;text-align:center;display:none}
 .app{display:none}
 .app.show{display:flex}
@@ -264,9 +269,10 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
 <div class="login-screen" id="login-screen">
   <div class="login-card">
     <div class="login-logo">
-      <img id="login-logo-img" style="height:80px;width:auto;margin-bottom:.5rem;display:block;margin-left:auto;margin-right:auto" alt="D'La Costa Barber Shop">
-      <div class="login-logo-title">BarberFinance</div>
-      <div class="login-logo-sub">Gestão Financeira da Rede</div>
+      <svg width="210" height="42" viewBox="0 0 230 42" xmlns="http://www.w3.org/2000/svg"><polygon points="22,0 40,10 40,32 22,42 4,32 4,10" fill="#C9A227"/><text x="22" y="28" font-family="Arial,sans-serif" font-size="15" font-weight="700" fill="#1A1008" text-anchor="middle">BF</text><text x="52" y="24" font-family="Arial,sans-serif" font-size="20" font-weight="700" fill="#F5F0E8" letter-spacing="-0.5">Barber</text><text x="128" y="24" font-family="Arial,sans-serif" font-size="20" font-weight="700" fill="#C9A227" letter-spacing="-0.5">Finance</text></svg>
+    </div>
+    <div style="text-align:center;margin-bottom:1.5rem">
+      <div style="font-size:12px;color:#8B7A6A;font-style:italic;letter-spacing:.3px">Inteligência financeira para barbearias</div>
     </div>
     <div class="field-group login-card">
       <label>Senha de acesso</label>
@@ -290,7 +296,7 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
       <i class="ti ti-layout-sidebar-left-collapse" id="sidebar-toggle-icon"></i>
     </button>
     <div class="logo">
-      <div class="logo-title">✂ BarberFinance</div>
+      <div class="logo-title" style="line-height:1;margin-bottom:4px"><svg width="160" height="32" viewBox="0 0 180 32" xmlns="http://www.w3.org/2000/svg"><polygon points="17,0 31,8 31,25 17,33 3,25 3,8" fill="#C9A227"/><text x="17" y="22" font-family="Arial,sans-serif" font-size="12" font-weight="700" fill="#1A1008" text-anchor="middle">BF</text><text x="42" y="18" font-family="Arial,sans-serif" font-size="15" font-weight="700" fill="currentColor" letter-spacing="-0.3">Barber</text><text x="97" y="18" font-family="Arial,sans-serif" font-size="15" font-weight="700" fill="#C9A227" letter-spacing="-0.3">Finance</text></svg></div>
       <div class="logo-sub" id="sb-status">Não conectado</div>
     </div>
     <div class="nav-sec">Visão Geral</div>
@@ -420,6 +426,7 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
           <div class="tab active" onclick="switchImportTab('ofx',this)"><i class="ti ti-file-upload" style="font-size:14px"></i> Importar OFX</div>
           <div class="tab" onclick="switchImportTab('excel',this)"><i class="ti ti-file-spreadsheet" style="font-size:14px"></i> Importar Excel (App Barber)</div>
           <div class="tab" onclick="switchImportTab('mensal',this)"><i class="ti ti-table" style="font-size:14px"></i> Resumo Mensal</div>
+          <div class="tab" onclick="switchImportTab('gerencial',this)"><i class="ti ti-report-money" style="font-size:14px"></i> Relatório Gerencial</div>
           <div class="tab" onclick="switchImportTab('manual',this)"><i class="ti ti-pencil" style="font-size:14px"></i> Lançamento Manual</div>
         </div>
 
@@ -516,6 +523,45 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
             </div>
           </div>
           <div id="mensal-ok"></div>
+        </div>
+
+        <!-- TAB RELATÓRIO GERENCIAL -->
+        <div id="import-tab-gerencial" style="display:none">
+          <div class="card">
+            <div class="card-title"><i class="ti ti-report-money"></i> Importar Relatório Gerencial (AppBarber)</div>
+            <div class="alert info"><i class="ti ti-info-circle"></i> Importa o arquivo <strong>Relatório Gerencial Financeiro</strong> exportado do AppBarber. Cada linha vira um lançamento de <strong>saída</strong> com data, descrição e valor originais. Colunas esperadas: <em>Descrição · Data · Valor Bruto</em>.</div>
+            <div class="field-row">
+              <div class="field-group" style="margin:0"><label>Unidade *</label><select id="sel-unidade-gerencial" onchange="popularContasPorUnidade('sel-unidade-gerencial','sel-conta-gerencial')"></select></div>
+              <div class="field-group" style="margin:0"><label>Conta bancária</label><select id="sel-conta-gerencial"><option value="">Selecione a unidade</option></select></div>
+            </div>
+            <div class="drop-zone" id="dropzone-gerencial" style="margin-top:1rem"
+              onclick="document.getElementById('fileInputGerencial').click()"
+              ondragover="dzEvGer(event,1)" ondragleave="dzEvGer(event,0)" ondrop="handleDropGer(event)">
+              <i class="ti ti-report-money"></i>
+              <p style="font-size:13px;color:var(--text2)">Arraste o Relatório Gerencial Financeiro (.xlsx) aqui</p>
+              <small style="font-size:11px;color:var(--text3)">Colunas: Despesa · Descrição · Data · Tipo · Valor Bruto · Pagamento</small>
+            </div>
+            <input type="file" id="fileInputGerencial" accept=".xlsx,.xls" style="display:none" onchange="handleFileGer(this)">
+          </div>
+          <div id="gerencial-preview" style="display:none">
+            <div class="alert info" id="gerencial-info"></div>
+            <div class="card" style="padding:.75rem 1.25rem 1rem">
+              <div style="overflow-x:auto"><table>
+                <thead><tr>
+                  <th style="width:36px"><input type="checkbox" id="chk-all-ger" onchange="toggleAllGer(this)" style="width:auto"></th>
+                  <th>Data</th><th>Descrição</th><th>Tipo</th><th>Pagamento</th>
+                  <th style="text-align:right">Valor</th><th>Categoria</th>
+                </tr></thead>
+                <tbody id="gerencial-preview-body"></tbody>
+              </table></div>
+              <div style="display:flex;gap:8px;margin-top:1rem;align-items:center">
+                <button class="btn primary" onclick="confirmarImportacaoGerencial()"><i class="ti ti-check"></i> Salvar selecionados</button>
+                <button class="btn" onclick="cancelarImportacaoGerencial()"><i class="ti ti-x"></i> Cancelar</button>
+                <span id="gerencial-count" style="font-size:12px;color:var(--text2);margin-left:auto"></span>
+              </div>
+            </div>
+          </div>
+          <div id="gerencial-ok"></div>
         </div>
 
         <!-- TAB MANUAL -->
@@ -5281,19 +5327,193 @@ async function salvarOrcamento(replicarTodas) {
 function switchImportTab(tab, el) {
   document.querySelectorAll('#page-importar .tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
-  document.getElementById('import-tab-ofx').style.display    = tab === 'ofx'    ? '' : 'none';
-  document.getElementById('import-tab-excel').style.display  = tab === 'excel'  ? '' : 'none';
-  document.getElementById('import-tab-mensal').style.display = tab === 'mensal' ? '' : 'none';
-  document.getElementById('import-tab-manual').style.display = tab === 'manual' ? '' : 'none';
+  document.getElementById('import-tab-ofx').style.display      = tab === 'ofx'      ? '' : 'none';
+  document.getElementById('import-tab-excel').style.display    = tab === 'excel'    ? '' : 'none';
+  document.getElementById('import-tab-mensal').style.display   = tab === 'mensal'   ? '' : 'none';
+  document.getElementById('import-tab-gerencial').style.display= tab === 'gerencial'? '' : 'none';
+  document.getElementById('import-tab-manual').style.display   = tab === 'manual'   ? '' : 'none';
   if (tab === 'manual') initManual();
-  if (tab === 'excel') {
-    populateU('sel-unidade-excel', 'Selecionar unidade...');
-    document.getElementById('sel-conta-excel').innerHTML = '<option value="">Selecione a unidade</option>';
+  if (tab === 'excel')    { populateU('sel-unidade-excel','Selecionar unidade...'); document.getElementById('sel-conta-excel').innerHTML='<option value="">Selecione a unidade</option>'; }
+  if (tab === 'mensal')   { populateU('sel-unidade-mensal','Selecionar unidade...'); document.getElementById('sel-conta-mensal').innerHTML='<option value="">Selecione a unidade</option>'; }
+  if (tab === 'gerencial'){ populateU('sel-unidade-gerencial','Selecionar unidade...'); document.getElementById('sel-conta-gerencial').innerHTML='<option value="">Selecione a unidade</option>'; }
+}
+
+// ============================================================
+//  IMPORTAÇÃO RELATÓRIO GERENCIAL FINANCEIRO (AppBarber)
+// ============================================================
+let pendingGerTx = [];
+
+function dzEvGer(e, on) { e.preventDefault(); document.getElementById('dropzone-gerencial').classList.toggle('drag', !!on); }
+function handleDropGer(e) { e.preventDefault(); dzEvGer(e,0); const f=e.dataTransfer.files[0]; if(f) processGerencial(f); }
+function handleFileGer(i) { if(i.files[0]) processGerencial(i.files[0]); }
+
+function parseValorGer(v) {
+  if (!v) return 0;
+  if (typeof v === 'number') return Math.abs(v);
+  return Math.abs(parseFloat(String(v).replace(/R\$\s*/,'').replace(/\./g,'').replace(',','.')) || 0);
+}
+
+function parseDateGer(v) {
+  if (!v) return null;
+  const s = String(v).trim();
+  // DD/MM/YYYY HH:MM:SS ou DD/MM/YYYY
+  const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+  // Número serial do Excel
+  if (!isNaN(v)) {
+    const d = new Date((v - 25569) * 86400000);
+    return d.toISOString().split('T')[0];
   }
-  if (tab === 'mensal') {
-    populateU('sel-unidade-mensal', 'Selecionar unidade...');
-    document.getElementById('sel-conta-mensal').innerHTML = '<option value="">Selecione a unidade</option>';
-  }
+  return null;
+}
+
+function processGerencial(file) {
+  const uid = document.getElementById('sel-unidade-gerencial').value;
+  if (!uid) { alert('Selecione a unidade.'); return; }
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb   = XLSX.read(e.target.result, { type:'array', cellDates:false });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
+
+      // Detectar linha de cabeçalho
+      let headerRow = -1, cols = {};
+      for (let i=0; i<Math.min(5, rows.length); i++) {
+        const r = rows[i].map(c => String(c||'').toLowerCase().trim());
+        if (r.some(c => c.includes('descriç') || c.includes('descri'))) {
+          headerRow = i;
+          cols.descricao = r.findIndex(c => c.includes('descriç') || c.includes('descri'));
+          cols.data      = r.findIndex(c => c.includes('data'));
+          cols.valor     = r.findIndex(c => c.includes('valor'));
+          cols.tipo      = r.findIndex(c => c === 'tipo');
+          cols.pagamento = r.findIndex(c => c.includes('pagamento') || c.includes('pag'));
+          cols.despesa   = r.findIndex(c => c.includes('despesa') || c.includes('categoria'));
+          break;
+        }
+      }
+
+      if (headerRow === -1) { alert('Formato não reconhecido. Verifique se o arquivo tem a coluna "Descrição".'); return; }
+
+      const txns = [];
+      for (let i = headerRow+1; i < rows.length; i++) {
+        const row  = rows[i];
+        const desc = String(row[cols.descricao]||'').trim();
+        if (!desc || desc.toLowerCase().startsWith('total')) continue;
+
+        const data  = parseDateGer(row[cols.data]);
+        const valor = parseValorGer(row[cols.valor]);
+        if (!data || !valor) continue;
+
+        const tipo     = String(row[cols.tipo]||'').trim();
+        const pagto    = String(row[cols.pagamento]||'').trim();
+        const categoria= String(cols.despesa >= 0 ? row[cols.despesa]||'' : '').trim();
+
+        // Autocat
+        const cat = autoCategoria(desc);
+
+        txns.push({ desc, data, valor, tipo, pagto, categoria, cat });
+      }
+
+      if (!txns.length) { alert('Nenhum lançamento encontrado. Verifique o arquivo.'); return; }
+
+      pendingGerTx = txns;
+      renderPreviewGerencial(txns);
+    } catch(err) { alert('Erro ao ler o arquivo: ' + err.message); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderPreviewGerencial(txns) {
+  const uid  = document.getElementById('sel-unidade-gerencial').value;
+  const u    = CACHE.unidades.find(u => u.id == uid);
+  const total = txns.reduce((s,t) => s+t.valor, 0);
+
+  document.getElementById('gerencial-info').innerHTML =
+    `<i class="ti ti-info-circle"></i> <strong>${txns.length} lançamentos</strong> encontrados — ${u?u.nome:'?'} · Total saídas: <strong class="tx-s">${fBRL(total)}</strong>`;
+
+  document.getElementById('gerencial-preview-body').innerHTML = txns.map((t,i) => {
+    const opts = '<option value="">— Sem categoria —</option>' +
+      CACHE.categorias.map(c => `<option value="${c.id}" ${t.cat?.id===c.id?'selected':''}>${c.nome}</option>`).join('');
+    const tipoBadge = t.tipo === 'Financeiro'
+      ? `<span class="badge b">Financeiro</span>`
+      : `<span class="badge gr">Caixa</span>`;
+    return `<tr>
+      <td><input type="checkbox" id="ger-chk-${i}" checked style="width:auto" onchange="atualizarContGer()"></td>
+      <td style="font-size:12px;white-space:nowrap">${fDate(t.data)}</td>
+      <td style="font-size:11px;max-width:200px;word-break:break-word">${t.desc}</td>
+      <td>${tipoBadge}</td>
+      <td style="font-size:11px;color:var(--text2)">${t.pagto||'—'}</td>
+      <td class="tx-s" style="text-align:right;white-space:nowrap">${fBRL(t.valor)}</td>
+      <td><select id="ger-cat-${i}" style="font-size:11px;padding:3px 6px;width:100%">${opts}</select></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('gerencial-preview').style.display = 'block';
+  document.getElementById('gerencial-ok').innerHTML = '';
+  atualizarContGer();
+}
+
+function toggleAllGer(cb) {
+  pendingGerTx.forEach((_,i) => {
+    const el = document.getElementById(`ger-chk-${i}`);
+    if (el) el.checked = cb.checked;
+  });
+  atualizarContGer();
+}
+
+function atualizarContGer() {
+  const sel = pendingGerTx.filter((_,i) => document.getElementById(`ger-chk-${i}`)?.checked).length;
+  const tot = pendingGerTx.filter((_,i) => document.getElementById(`ger-chk-${i}`)?.checked)
+    .reduce((s,_,i) => s + (pendingGerTx[i]?.valor||0), 0);
+  document.getElementById('gerencial-count').textContent = `${sel} selecionados`;
+}
+
+async function confirmarImportacaoGerencial() {
+  if (!db) { alert('Configure o Supabase.'); return; }
+  const uid     = parseInt(document.getElementById('sel-unidade-gerencial').value);
+  const contaId = parseInt(document.getElementById('sel-conta-gerencial').value) || null;
+  const contaObj= CACHE.contas.find(c => c.id === contaId);
+
+  const rows = [];
+  pendingGerTx.forEach((t, i) => {
+    if (!document.getElementById(`ger-chk-${i}`)?.checked) return;
+    const catId  = parseInt(document.getElementById(`ger-cat-${i}`)?.value) || null;
+    const catObj = catId ? CACHE.categorias.find(c => c.id === catId) : null;
+    rows.push({
+      unidade_id: uid,
+      data: t.data,
+      descricao: t.desc,
+      cat_id: catId,
+      cat_nome: catObj?.nome || null,
+      grupo: catObj?.grupo || 'custo_fixo',
+      tipo: 'S',
+      valor: t.valor,
+      conta: contaObj?.tipo || null,
+      conta_bancaria_id: contaId,
+    });
+  });
+
+  if (!rows.length) { alert('Nenhum lançamento selecionado.'); return; }
+  showLoading(`Salvando ${rows.length} lançamentos...`);
+  const { error } = await db.from('lancamentos').insert(rows);
+  hideLoading();
+
+  if (error) { alert('Erro: ' + error.message); return; }
+
+  document.getElementById('gerencial-preview').style.display = 'none';
+  document.getElementById('gerencial-ok').innerHTML =
+    `<div class="alert success"><i class="ti ti-circle-check"></i> ${rows.length} lançamentos importados com sucesso!</div>`;
+  document.getElementById('fileInputGerencial').value = '';
+  pendingGerTx = [];
+  await carregarTudo();
+  atualizarPillSem();
+}
+
+function cancelarImportacaoGerencial() {
+  document.getElementById('gerencial-preview').style.display = 'none';
+  pendingGerTx = [];
 }
 
 // ============================================================
@@ -5668,10 +5888,6 @@ function entrarNoSistema() {
 //  INICIALIZAÇÃO
 // ============================================================
 (function init() {
-  // Logo no login
-  const loginLogo = document.getElementById('login-logo-img');
-  if (loginLogo) loginLogo.src = LOGO_B64;
-
   // Aplicar tema salvo imediatamente (antes de qualquer render)
   const temaSalvo = localStorage.getItem('bf_tema') || 'light';
   aplicarTema(temaSalvo);
