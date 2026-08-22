@@ -298,7 +298,6 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
     <div class="nav-sec">Visão Geral</div>
     <div class="nav-item active" onclick="showPage('dashboard')"><i class="ti ti-dashboard"></i> Dashboard</div>
     <div class="nav-item" onclick="showPage('saldos')"><i class="ti ti-building-bank"></i> Saldos Bancários</div>
-    <div class="nav-item" onclick="showPage('metas')"><i class="ti ti-target"></i> Metas por Unidade</div>
     <div class="nav-item" onclick="showPage('comparativo')"><i class="ti ti-layout-columns"></i> Comparativo</div>
     <div class="nav-sec">Financeiro</div>
     <div class="nav-item" onclick="showPage('importar')"><i class="ti ti-upload"></i> Importar OFX</div>
@@ -389,17 +388,6 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
     </div>
 
     <!-- ==================== METAS ==================== -->
-    <div id="page-metas" class="page">
-      <div class="topbar">
-        <div><div class="topbar-title">Metas por Unidade</div><div class="topbar-sub">Ponto de equilíbrio e metas de lucro em tempo real</div></div>
-        <div class="topbar-right"><select id="meta-mes" onchange="renderMetas()" style="width:160px"></select></div>
-      </div>
-      <div class="content">
-        <div class="alert info"><i class="ti ti-info-circle"></i> PE calculado com base nos custos do período. Metas mostram o faturamento necessário para atingir cada margem líquida sobre a receita.</div>
-        <div class="meta-grid" id="metas-full"></div>
-      </div>
-    </div>
-
     <!-- ==================== COMPARATIVO ==================== -->
     <div id="page-comparativo" class="page">
       <div class="topbar">
@@ -2033,7 +2021,7 @@ function populateTodosSelects() {
     const allLabel = sid === 'sel-unidade' ? 'Selecionar unidade...' : 'Todas as unidades';
     populateU(sid, allLabel);
   });
-  ['fil-m','dre-m','fc-m','db-mes','meta-mes','cmp-mes'].forEach(sid => populateMes(sid));
+  ['fil-m','dre-m','fc-m','db-mes','cmp-mes'].forEach(sid => populateMes(sid));
   ['massa-cat','regra-cat'].forEach(sid => populateCatSel(sid));
 }
 
@@ -2071,7 +2059,6 @@ function atualizarPillSem() {
 // ============================================================
 const PAGE_RENDERS = {
   dashboard:  () => { populateMes('db-mes'); renderDashboard(); },
-  metas:      () => { populateMes('meta-mes'); renderMetas(); },
   comparativo: () => { populateMes('cmp-mes'); renderComparativo(); },
   importar:   () => { populateU('sel-unidade','Selecionar unidade...'); document.getElementById('sel-conta').innerHTML='<option value="">Selecione a unidade</option>'; },
   massa:      renderMassa,
@@ -3533,7 +3520,6 @@ function salvarSaudeModal() {
   localStorage.setItem('bf_benchmarks_unidade', JSON.stringify(BENCHMARKS_UNIDADE));
 
   fecharModal('modal-saude');
-  renderMetas();
 }
 
 // ============================================================
