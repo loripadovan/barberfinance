@@ -306,14 +306,13 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
     <div class="nav-item" onclick="showPage('lancamentos')"><i class="ti ti-list"></i> Lançamentos</div>
     <div class="nav-item" onclick="showPage('dre')"><i class="ti ti-file-analytics"></i> DRE Gerencial</div>
     <div class="nav-item" onclick="showPage('fluxo')"><i class="ti ti-chart-bar"></i> Fluxo de Caixa</div>
-    <div class="nav-item" onclick="showPage('fluxocalendario')"><i class="ti ti-calendar-stats"></i> Fluxo Calendário</div>
+    <div class="nav-item" onclick="showPage('fluxocalendario')"><i class="ti ti-calendar-stats"></i> Fluxo de Caixa</div>
     <div class="nav-sec">Cadastros</div>
     <div class="nav-item" onclick="showPage('unidades')"><i class="ti ti-building-store"></i> Unidades</div>
     <div class="nav-item" onclick="showPage('contas')"><i class="ti ti-building-bank"></i> Contas Bancárias</div>
     <div class="nav-item" onclick="showPage('categorias')"><i class="ti ti-tag"></i> Categorias</div>
     <div class="nav-item" onclick="showPage('regras')"><i class="ti ti-wand"></i> Regras Auto</div>
     <div class="nav-item" onclick="showPage('orcamento')"><i class="ti ti-calculator"></i> Orçamento / PE</div>
-    <div class="nav-item" onclick="showPage('calendario')"><i class="ti ti-calendar"></i> Calendário Pagamentos</div>
     <div class="nav-item" onclick="showPage('relatorios')"><i class="ti ti-report"></i> Relatórios</div>
     <div class="nav-item" onclick="showPage('uti')" style="color:var(--r1);font-weight:600"><i class="ti ti-urgent"></i> UTI Financeira</div>
     <div class="nav-sec">Sistema</div>
@@ -952,69 +951,101 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
 
     <!-- ==================== FLUXO CALENDÁRIO ==================== -->
     <div id="page-fluxocalendario" class="page">
-      <div class="topbar">
-        <div><div class="topbar-title">Fluxo Calendário</div><div class="topbar-sub">Projeção de caixa por dia — 6 meses</div></div>
-        <div class="topbar-right">
-          <select id="fcal-u" onchange="renderFluxoCalendario()" style="width:180px"></select>
-          <button class="btn sm" onclick="delete FCAL_CACHE[parseInt(document.getElementById('fcal-u').value)]; renderFluxoCalendario()" title="Atualizar dados do servidor"><i class="ti ti-refresh"></i> Atualizar</button>
-        </div>
+      <!-- Filtros fixos -->
+      <div class="fca2-filters">
+        <select id="fca2-u" onchange="renderFCA2()" style="width:160px"></select>
+        <select id="fca2-mes" onchange="renderFCA2()" style="width:150px"></select>
+        <button class="btn sm" onclick="fca2Refresh()" title="Atualizar do servidor"><i class="ti ti-refresh"></i> Atualizar</button>
+        <button class="btn sm primary" onclick="abrirModalFCA2Lanc(null, null)" style="margin-left:auto"><i class="ti ti-plus"></i> Novo lançamento</button>
       </div>
       <div class="content">
-        <!-- Painel de saldo inicial e resumo -->
-        <div class="fcal-header">
-          <div class="fcal-saldo-box">
-            <label>Saldo inicial hoje (R$)</label>
-            <input type="number" id="fcal-saldo-inicial" placeholder="0,00" step="0.01"
-              oninput="salvarSaldoInicialFcal(); renderFluxoCalendario()">
+        <!-- Atrasados -->
+        <div class="fca2-atrasados" id="fca2-atrasados-panel" style="display:none">
+          <div class="fca2-atrasados-hdr" onclick="toggleFCA2Atrasados()">
+            <div class="fca2-atrasados-hdr-title"><i class="ti ti-alert-triangle"></i><span id="fca2-atrasados-count">0 pendências em atraso</span></div>
+            <div class="fca2-atrasados-hdr-sub" id="fca2-atrasados-resumo"></div>
+            <i class="ti ti-chevron-down" id="fca2-atrasados-icon" style="color:var(--text3);transition:transform .2s"></i>
           </div>
-          <div id="fcal-resumo-header" style="display:flex;gap:12px;flex-wrap:wrap"></div>
+          <div id="fca2-atrasados-body" style="display:none"></div>
         </div>
-        <div id="fcal-legenda" style="display:flex;gap:12px;margin-bottom:1rem;font-size:11px;flex-wrap:wrap">
-          <span><span class="fcal-item cf" style="display:inline-block;padding:2px 6px">Custo Fixo</span></span>
-          <span><span class="fcal-item entrada" style="display:inline-block;padding:2px 6px">Entrada prevista</span></span>
-          <span><span class="fcal-item saida" style="display:inline-block;padding:2px 6px">Saída prevista</span></span>
-          <span style="color:var(--text2)">Clique em qualquer dia para lançar entrada ou saída prevista</span>
+        <!-- Cards resumo -->
+        <div class="fca2-resumo" id="fca2-resumo"></div>
+        <!-- Legenda -->
+        <div class="fca2-legenda">
+          <div class="fca2-legenda-item"><div class="fca2-item real-e" style="padding:2px 8px">↑ Real</div><span style="color:var(--text2)">Entrada realizada</span></div>
+          <div class="fca2-legenda-item"><div class="fca2-item real-s" style="padding:2px 8px">↓ Real</div><span style="color:var(--text2)">Saída realizada</span></div>
+          <div class="fca2-legenda-item"><div class="fca2-item prev-e" style="padding:2px 8px">↑ Prev</div><span style="color:var(--text2)">Entrada prevista</span></div>
+          <div class="fca2-legenda-item"><div class="fca2-item prev-s" style="padding:2px 8px">↓ Prev</div><span style="color:var(--text2)">Saída prevista</span></div>
+          <div class="fca2-legenda-item"><div class="fca2-item cf" style="padding:2px 8px">CF</div><span style="color:var(--text2)">Custo fixo programado</span></div>
         </div>
-        <div id="fcal-corpo"></div>
+        <!-- Calendário -->
+        <div id="fca2-cal"></div>
       </div>
     </div>
 
-    <!-- MODAL LANÇAMENTO PREVISTO NO CALENDÁRIO -->
-    <div class="modal-overlay" id="modal-fcal">
-      <div class="modal" style="width:460px;max-height:88vh;overflow-y:auto">
-        <div class="modal-title" id="modal-fcal-title">Lançamento Previsto</div>
-        <input type="hidden" id="fcal-lanc-data">
-        <input type="hidden" id="fcal-lanc-id">
-
-        <!-- Lista de lançamentos existentes no dia -->
-        <div id="fcal-lancs-existentes" style="display:none;margin-bottom:1rem">
-          <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Lançamentos neste dia</div>
-          <div id="fcal-lancs-lista"></div>
+    <!-- MODAL LANÇAMENTO FLUXO CALENDÁRIO -->
+    <div class="modal-overlay" id="modal-fca2">
+      <div class="modal" style="width:480px;max-height:90vh;overflow-y:auto">
+        <div class="modal-title" id="modal-fca2-title">Lançamento</div>
+        <input type="hidden" id="fca2-edit-id">
+        <input type="hidden" id="fca2-edit-data">
+        <!-- Lista do dia -->
+        <div id="fca2-dia-lista" style="margin-bottom:1rem;display:none">
+          <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Lançamentos do dia</div>
+          <div id="fca2-dia-items"></div>
           <div style="height:1px;background:var(--border);margin:12px 0"></div>
         </div>
-
-        <!-- Formulário novo lançamento -->
-        <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px" id="fcal-novo-label">Novo lançamento</div>
+        <!-- Formulário -->
+        <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Novo lançamento</div>
         <div class="field-row">
           <div class="field-group">
-            <label>Tipo</label>
-            <select id="fcal-lanc-tipo">
-              <option value="E">↑ Entrada prevista</option>
-              <option value="S">↓ Saída prevista</option>
+            <label>Tipo *</label>
+            <select id="fca2-tipo">
+              <option value="prev-e">↑ Entrada prevista</option>
+              <option value="prev-s">↓ Saída prevista</option>
             </select>
           </div>
           <div class="field-group">
+            <label>Data *</label>
+            <input type="date" id="fca2-data">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field-group">
             <label>Valor (R$) *</label>
-            <input type="number" id="fcal-lanc-valor" placeholder="0,00" min="0" step="0.01">
+            <input type="number" id="fca2-valor" placeholder="0,00" min="0" step="0.01">
+          </div>
+          <div class="field-group">
+            <label>Categoria</label>
+            <select id="fca2-cat"><option value="">— Sem categoria —</option></select>
           </div>
         </div>
         <div class="field-group">
           <label>Descrição *</label>
-          <input type="text" id="fcal-lanc-desc" placeholder="Ex: Faturamento previsto, Aluguel, Fornecedor...">
+          <input type="text" id="fca2-desc" placeholder="Ex: Aluguel previsto, Faturamento esperado...">
         </div>
         <div class="modal-actions">
-          <button class="btn" onclick="fecharModal('modal-fcal')">Fechar</button>
-          <button class="btn primary" onclick="salvarLancFcal()"><i class="ti ti-plus"></i> Adicionar</button>
+          <button class="btn" onclick="fecharModal('modal-fca2')">Cancelar</button>
+          <button class="btn primary" onclick="salvarFCA2Lanc()"><i class="ti ti-plus"></i> Adicionar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL REALIZAR LANÇAMENTO PREVISTO -->
+    <div class="modal-overlay" id="modal-fca2-realizar">
+      <div class="modal" style="width:420px">
+        <div class="modal-title">Realizar lançamento</div>
+        <input type="hidden" id="fca2-realizar-id">
+        <div id="fca2-realizar-info" style="background:var(--bg2);border-radius:var(--radius-sm);padding:.75rem 1rem;margin-bottom:1rem;font-size:13px"></div>
+        <div class="alert info"><i class="ti ti-info-circle"></i> Ao realizar, este lançamento entra no DRE, Fluxo de Caixa e Lançamentos.</div>
+        <div class="field-group">
+          <label>Conta bancária</label>
+          <select id="fca2-realizar-conta"><option value="">Nenhuma</option></select>
+        </div>
+        <div class="modal-actions">
+          <button class="btn" onclick="fecharModal('modal-fca2-realizar')">Cancelar</button>
+          <button class="btn danger" onclick="excluirFCA2Lanc()"><i class="ti ti-trash"></i> Excluir previsto</button>
+          <button class="btn primary" onclick="realizarFCA2Lanc()"><i class="ti ti-check"></i> Realizar</button>
         </div>
       </div>
     </div>
@@ -1645,6 +1676,66 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
 .uti-table tr.p3 td:first-child{border-left:4px solid #1D9E75;padding-left:10px}
 </style>
 
+<style>
+/* ===== NOVO FLUXO CALENDÁRIO ===== */
+.fca2-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:.75rem 1.5rem;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:57px;z-index:9}
+.fca2-resumo{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:1rem}
+.fca2-card{border-radius:var(--radius);padding:1rem 1.25rem;border:1px solid var(--border)}
+.fca2-card.e{background:#0F2820;border-color:#1D9E75}
+.fca2-card.s{background:#2A0A0A;border-color:#A32D2D}
+.fca2-card.b{background:var(--bg2);border-color:var(--border2)}
+.fca2-card-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;opacity:.7}
+.fca2-card.e .fca2-card-label{color:#1D9E75}
+.fca2-card.s .fca2-card-label{color:#A32D2D}
+.fca2-card.b .fca2-card-label{color:var(--text2)}
+.fca2-card-val{font-size:22px;font-weight:700;letter-spacing:-.5px}
+.fca2-card.e .fca2-card-val{color:#22C78E}
+.fca2-card.s .fca2-card-val{color:#E05C5C}
+.fca2-card-sub{font-size:11px;margin-top:4px;opacity:.6}
+.fca2-card.e .fca2-card-sub{color:#1D9E75}
+.fca2-card.s .fca2-card-sub{color:#A32D2D}
+/* Atrasados */
+.fca2-atrasados{border-radius:var(--radius);border:1.5px solid #A32D2D;margin-bottom:1rem;overflow:hidden}
+.fca2-atrasados-hdr{background:#2A0A0A;padding:.75rem 1rem;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.fca2-atrasados-hdr-title{font-size:13px;font-weight:700;color:#E05C5C;display:flex;align-items:center;gap:8px}
+.fca2-atrasados-hdr-sub{font-size:12px;color:var(--text2)}
+.fca2-atrasados-body{background:var(--bg2)}
+.fca2-atrasados-sec{padding:.5rem 1rem .25rem;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.fca2-atrasados-sec.pagar{color:#A32D2D}
+.fca2-atrasados-sec.receber{color:#1D9E75}
+.fca2-atrasados-row{display:flex;justify-content:space-between;align-items:center;padding:.5rem 1rem;border-bottom:.5px solid var(--border);font-size:12px}
+.fca2-atrasados-row:last-child{border-bottom:none}
+.fca2-atrasados-nome{font-weight:500;color:var(--text);flex:1}
+.fca2-atrasados-cat{font-size:11px;color:var(--text3);margin:0 1rem}
+.fca2-atrasados-venc{font-size:11px;color:var(--text3);white-space:nowrap}
+.fca2-atrasados-val{font-weight:700;white-space:nowrap;margin-left:1rem}
+.fca2-atrasados-total{display:flex;justify-content:flex-end;padding:.5rem 1rem;font-size:13px;font-weight:700;background:var(--bg3)}
+/* Calendário */
+.fca2-cal-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem}
+.fca2-cal-mes{font-size:15px;font-weight:700;color:var(--text);text-transform:capitalize}
+.fca2-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.fca2-dow{font-size:10px;font-weight:600;color:var(--text3);text-align:center;padding:4px 0;text-transform:uppercase;letter-spacing:.05em}
+.fca2-dia{min-height:80px;background:var(--bg2);border-radius:6px;border:1px solid var(--border);padding:5px 6px;display:flex;flex-direction:column;gap:2px;cursor:pointer;transition:border-color .15s;position:relative}
+.fca2-dia:hover{border-color:var(--g1)}
+.fca2-dia.hoje{border-color:var(--g1);border-width:2px}
+.fca2-dia.vazio{background:transparent;border-color:transparent;cursor:default}
+.fca2-dia-num{font-size:11px;font-weight:700;color:var(--text2);margin-bottom:2px}
+.fca2-dia.hoje .fca2-dia-num{color:var(--g1)}
+.fca2-item{font-size:9px;padding:1px 4px;border-radius:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+/* Reais = sólido */
+.fca2-item.real-e{background:#0F2820;color:#22C78E;border-left:2px solid #1D9E75}
+.fca2-item.real-s{background:#2A0A0A;color:#E05C5C;border-left:2px solid #A32D2D}
+/* Previstos = mais suave com borda tracejada */
+.fca2-item.prev-e{background:var(--bg3);color:#1D9E75;border-left:2px dashed #1D9E75;opacity:.8}
+.fca2-item.prev-s{background:var(--bg3);color:#A32D2D;border-left:2px dashed #A32D2D;opacity:.8}
+/* Custos fixos do orçamento */
+.fca2-item.cf{background:var(--bg3);color:var(--text2);border-left:2px solid var(--border2);opacity:.75}
+.fca2-saldo{font-size:10px;font-weight:700;position:absolute;bottom:4px;right:5px}
+.fca2-dia-totais{display:flex;justify-content:space-between;font-size:9px;padding:1px 0;margin-top:1px;border-top:.5px solid var(--border)}
+.fca2-legenda{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:1rem;font-size:11px;align-items:center}
+.fca2-legenda-item{display:flex;align-items:center;gap:5px}
+</style>
+
 <script>
 // ============================================================
 //  CONFIGURAÇÃO SUPABASE
@@ -2021,7 +2112,7 @@ function populateTodosSelects() {
     const allLabel = sid === 'sel-unidade' ? 'Selecionar unidade...' : 'Todas as unidades';
     populateU(sid, allLabel);
   });
-  ['fil-m','dre-m','fc-m','db-mes','cmp-mes'].forEach(sid => populateMes(sid));
+  ['fil-m','dre-m','fc-m','db-mes','cmp-mes','fca2-mes'].forEach(sid => populateMes(sid));
   ['massa-cat','regra-cat'].forEach(sid => populateCatSel(sid));
 }
 
@@ -2097,7 +2188,7 @@ const PAGE_RENDERS = {
   emprestimos:renderEmprestimos,
   calendario: renderCalendario,
   relatorios: initRelatorios,
-  fluxocalendario: async () => { await initFluxoCalendario(); },
+  fluxocalendario: async () => { await initFCA2(); },
   uti: initUTI,
 };
 function showPage(id) {
@@ -4384,6 +4475,354 @@ async function salvarLancFcal() {
 }
 
 function excluirLancFcal() {} // mantida para compatibilidade
+
+// ============================================================
+//  NOVO FLUXO CALENDÁRIO (FCA2) — Lançamentos reais + previstos
+// ============================================================
+let FCA2_CACHE_PREV = {}; // previstos por uid: [{id,data,tipo,valor,descricao,cat_id,realizado}]
+let FCA2_CACHE_SALDO = {}; // saldo inicial por uid
+
+async function fca2CarregarPrevistos(uid) {
+  if (!db) return [];
+  const { data } = await db.from('fluxo_calendario').select('*').eq('unidade_id', uid).order('data');
+  FCA2_CACHE_PREV[uid] = (data||[]).map(l => ({
+    id: l.id, data: l.data.slice(0,10), tipo: l.tipo,
+    valor: parseFloat(l.valor), desc: l.descricao, cat_id: l.cat_id,
+    realizado: false, prev: true
+  }));
+  return FCA2_CACHE_PREV[uid];
+}
+
+async function fca2Refresh() {
+  const uid = parseInt(document.getElementById('fca2-u').value);
+  if (!uid) return;
+  delete FCA2_CACHE_PREV[uid];
+  await renderFCA2();
+}
+
+async function initFCA2() {
+  populateU('fca2-u', 'Selecionar unidade...');
+  populateMes('fca2-mes');
+  const selU = document.getElementById('fca2-u');
+  if (selU.options.length > 1) { selU.selectedIndex = 1; }
+  await renderFCA2();
+}
+
+async function renderFCA2() {
+  const uid    = parseInt(document.getElementById('fca2-u').value);
+  const mes    = document.getElementById('fca2-mes').value || getMeses()[0];
+  if (!uid || !mes) return;
+
+  // Carregar previstos do Supabase se não em cache
+  if (!FCA2_CACHE_PREV[uid]) await fca2CarregarPrevistos(uid);
+  const previstos = FCA2_CACHE_PREV[uid] || [];
+
+  // Lançamentos reais do Supabase (mês selecionado)
+  const reais = CACHE.lancamentos.filter(l =>
+    l.unidade_id == uid && l.data.startsWith(mes) &&
+    !l.transferencia_id &&
+    !(l.cat_nome?.toLowerCase().includes('transfer'))
+  );
+
+  // Custos fixos do orçamento
+  const orcItens = getOrcamento(uid);
+  const [ano, numM] = mes.split('-').map(Number);
+  const diasNoMes   = new Date(ano, numM, 0).getDate();
+
+  // Construir mapa por dia
+  const porDia = {};
+  const addItem = (d, item) => { if (!porDia[d]) porDia[d] = []; porDia[d].push(item); };
+
+  // Reais
+  reais.forEach(l => {
+    const d = parseInt(l.data.split('-')[2]);
+    addItem(d, { tipo: l.tipo === 'E' ? 'real-e' : 'real-s', valor: parseFloat(l.valor), desc: l.descricao||'—', id: l.id, real: true });
+  });
+
+  // Previstos do mês
+  previstos.filter(p => p.data.startsWith(mes)).forEach(p => {
+    const d = parseInt(p.data.split('-')[2]);
+    addItem(d, { tipo: p.tipo === 'E' ? 'prev-e' : 'prev-s', valor: p.valor, desc: p.desc, id: p.id, prev: true });
+  });
+
+  // Custos fixos do orçamento (não realizados ainda)
+  orcItens.forEach(item => {
+    if (!item.dia || !item.valor) return;
+    const d = Math.min(item.dia, diasNoMes);
+    // Verificar se já existe lançamento real com nome similar
+    const jaRealizado = reais.some(l => l.tipo === 'S' && (l.descricao||'').toLowerCase().includes(item.nome.toLowerCase().slice(0,6)));
+    if (!jaRealizado) {
+      addItem(d, { tipo: 'cf', valor: parseFloat(item.valor), desc: item.nome, cf: true });
+    }
+  });
+
+  // Saldo acumulado por dia
+  const hoje = new Date();
+  const hojeStr = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}`;
+  let saldo = 0;
+  const saldoPorDia = {};
+
+  for (let d = 1; d <= diasNoMes; d++) {
+    const itens = porDia[d] || [];
+    itens.forEach(i => {
+      if (i.tipo === 'real-e' || i.tipo === 'prev-e') saldo += i.valor;
+      else if (i.tipo === 'real-s' || i.tipo === 'prev-s' || i.tipo === 'cf') saldo -= i.valor;
+    });
+    saldoPorDia[d] = saldo;
+  }
+
+  // Totais do mês
+  const totalRealE = reais.filter(l=>l.tipo==='E').reduce((s,l)=>s+parseFloat(l.valor),0);
+  const totalRealS = reais.filter(l=>l.tipo==='S').reduce((s,l)=>s+parseFloat(l.valor),0);
+  const totalPrevE = previstos.filter(p=>p.data.startsWith(mes)&&p.tipo==='E').reduce((s,p)=>s+p.valor,0);
+  const totalPrevS = previstos.filter(p=>p.data.startsWith(mes)&&p.tipo==='S').reduce((s,p)=>s+p.valor,0);
+  const totalCF    = orcItens.reduce((s,i)=>s+parseFloat(i.valor||0),0);
+
+  // ── ATRASADOS ─────────────────────────────────────────────
+  const atrasadosS = CACHE.lancamentos.filter(l =>
+    l.unidade_id == uid && l.tipo === 'S' && l.data < hojeStr &&
+    !l.categoria_ok // placeholder — usamos lançamentos sem categorizar como proxy
+  );
+  const prevAtrasadosS = previstos.filter(p => p.data < hojeStr && p.tipo === 'S');
+  const prevAtrasadosE = previstos.filter(p => p.data < hojeStr && p.tipo === 'E');
+  const totalAtrasS = prevAtrasadosS.reduce((s,p)=>s+p.valor,0);
+  const totalAtrasE = prevAtrasadosE.reduce((s,p)=>s+p.valor,0);
+
+  // Render atrasados
+  const panelAt = document.getElementById('fca2-atrasados-panel');
+  const totalAt = prevAtrasadosS.length + prevAtrasadosE.length;
+  if (totalAt > 0) {
+    panelAt.style.display = '';
+    document.getElementById('fca2-atrasados-count').textContent = `${totalAt} pendência${totalAt>1?'s':''} em atraso`;
+    document.getElementById('fca2-atrasados-resumo').innerHTML =
+      `Saídas: <span style="color:#E05C5C;font-weight:700">${fBRL(totalAtrasS)}</span>` +
+      (totalAtrasE > 0 ? ` · Entradas: <span style="color:#22C78E;font-weight:700">${fBRL(totalAtrasE)}</span>` : '');
+
+    let bodyHtml = '';
+    if (prevAtrasadosS.length) {
+      bodyHtml += `<div class="fca2-atrasados-sec pagar">A pagar</div>`;
+      prevAtrasadosS.forEach(p => {
+        const cat = p.cat_id ? CACHE.categorias.find(c=>c.id===p.cat_id)?.nome : '—';
+        bodyHtml += `<div class="fca2-atrasados-row">
+          <span class="fca2-atrasados-nome">${p.desc}</span>
+          <span class="fca2-atrasados-cat">${cat||'—'}</span>
+          <span class="fca2-atrasados-venc">venc. ${fDate(p.data)}</span>
+          <span class="fca2-atrasados-val tx-s">${fBRL(p.valor)}</span>
+        </div>`;
+      });
+      bodyHtml += `<div class="fca2-atrasados-total"><span style="color:#E05C5C">Total a pagar em atraso</span><span style="color:#E05C5C;font-weight:700;margin-left:1rem">${fBRL(totalAtrasS)}</span></div>`;
+    }
+    if (prevAtrasadosE.length) {
+      bodyHtml += `<div class="fca2-atrasados-sec receber">A receber</div>`;
+      prevAtrasadosE.forEach(p => {
+        const cat = p.cat_id ? CACHE.categorias.find(c=>c.id===p.cat_id)?.nome : '—';
+        bodyHtml += `<div class="fca2-atrasados-row">
+          <span class="fca2-atrasados-nome">${p.desc}</span>
+          <span class="fca2-atrasados-cat">${cat||'—'}</span>
+          <span class="fca2-atrasados-venc">venc. ${fDate(p.data)}</span>
+          <span class="fca2-atrasados-val tx-e">${fBRL(p.valor)}</span>
+        </div>`;
+      });
+      bodyHtml += `<div class="fca2-atrasados-total"><span style="color:#22C78E">Total a receber em atraso</span><span style="color:#22C78E;font-weight:700;margin-left:1rem">${fBRL(totalAtrasE)}</span></div>`;
+    }
+    document.getElementById('fca2-atrasados-body').innerHTML = bodyHtml;
+  } else {
+    panelAt.style.display = 'none';
+  }
+
+  // ── CARDS RESUMO ──────────────────────────────────────────
+  const totalE = totalRealE + totalPrevE;
+  const totalS = totalRealS + totalPrevS + totalCF;
+  document.getElementById('fca2-resumo').innerHTML = `
+    <div class="fca2-card e">
+      <div class="fca2-card-label"><i class="ti ti-trending-up"></i> Entradas</div>
+      <div class="fca2-card-val">${fBRL(totalE)}</div>
+      <div class="fca2-card-sub">Realizado: ${fBRL(totalRealE)} · Previsto: ${fBRL(totalPrevE)}</div>
+    </div>
+    <div class="fca2-card s">
+      <div class="fca2-card-label"><i class="ti ti-trending-down"></i> Saídas</div>
+      <div class="fca2-card-val">${fBRL(totalS)}</div>
+      <div class="fca2-card-sub">Realizado: ${fBRL(totalRealS)} · CF: ${fBRL(totalCF)}</div>
+    </div>
+    <div class="fca2-card b">
+      <div class="fca2-card-label"><i class="ti ti-wallet"></i> Saldo projetado</div>
+      <div class="fca2-card-val" style="color:${totalE-totalS>=0?'var(--g1)':'var(--r1)'}">${fBRL(totalE-totalS)}</div>
+      <div class="fca2-card-sub">Realizado: ${fBRL(totalRealE-totalRealS)}</div>
+    </div>`;
+
+  // ── CALENDÁRIO ───────────────────────────────────────────
+  const nomeMesStr = new Date(ano, numM-1, 1).toLocaleString('pt-BR',{month:'long',year:'numeric'});
+  const primeiroDow = new Date(ano, numM-1, 1).getDay();
+  const DIAS_SEMANA = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  let html = `<div class="fca2-cal-hdr">
+    <div class="fca2-cal-mes">${nomeMesStr}</div>
+    <div style="font-size:11px;color:var(--text2)">${totalAt>0?`<span style="color:var(--r1);font-weight:600"><i class="ti ti-alert-triangle"></i> ${totalAt} em atraso</span>`:''} · Clique num dia para lançar</div>
+  </div>
+  <div class="fca2-grid">`;
+
+  DIAS_SEMANA.forEach(d => html += `<div class="fca2-dow">${d}</div>`);
+  for (let b=0; b<primeiroDow; b++) html += `<div class="fca2-dia vazio"></div>`;
+
+  for (let d=1; d<=diasNoMes; d++) {
+    const dataStr = `${mes}-${String(d).padStart(2,'0')}`;
+    const isHoje  = dataStr === hojeStr;
+    const isPast  = dataStr < hojeStr;
+    const itens   = porDia[d] || [];
+    const saldoDia = saldoPorDia[d];
+    const corSaldo = saldoDia >= 0 ? 'var(--g1)' : 'var(--r1)';
+
+    const itensHtml = itens.slice(0,4).map(i => {
+      const prefix = i.tipo==='real-e'||i.tipo==='prev-e' ? '↑' : '↓';
+      const valAbrev = i.valor >= 1000 ? `${(i.valor/1000).toFixed(1)}k` : fBRL(i.valor).replace('R$','').trim();
+      return `<div class="fca2-item ${i.tipo}" title="${i.desc}: ${fBRL(i.valor)}" onclick="event.stopPropagation();${i.prev?`abrirFCA2Realizar(${i.id})`:`''`}">${prefix} ${valAbrev}</div>`;
+    }).join('');
+    const mais = itens.length > 4 ? `<div style="font-size:9px;color:var(--text3)">+${itens.length-4}</div>` : '';
+
+    html += `<div class="fca2-dia${isHoje?' hoje':''}${isPast?' passado':''}" onclick="abrirModalFCA2Lanc('${dataStr}',${uid})">
+      <div class="fca2-dia-num">${d}</div>
+      ${itensHtml}${mais}
+      <div class="fca2-saldo" style="color:${corSaldo}">${fBRL(saldoDia)}</div>
+    </div>`;
+  }
+  html += '</div>';
+  document.getElementById('fca2-cal').innerHTML = html;
+}
+
+function toggleFCA2Atrasados() {
+  const body = document.getElementById('fca2-atrasados-body');
+  const icon = document.getElementById('fca2-atrasados-icon');
+  const open = body.style.display === 'none';
+  body.style.display = open ? '' : 'none';
+  icon.style.transform = open ? 'rotate(180deg)' : '';
+}
+
+function abrirModalFCA2Lanc(dataStr, uid) {
+  const prevUid = uid || parseInt(document.getElementById('fca2-u').value);
+  const mes = document.getElementById('fca2-mes').value || getMeses()[0];
+
+  document.getElementById('fca2-edit-id').value   = '';
+  document.getElementById('fca2-edit-data').value = dataStr || mes+'-01';
+  document.getElementById('fca2-data').value       = dataStr || '';
+  document.getElementById('fca2-tipo').value       = 'prev-s';
+  document.getElementById('fca2-valor').value      = '';
+  document.getElementById('fca2-desc').value       = '';
+
+  // Popular categorias
+  const selCat = document.getElementById('fca2-cat');
+  selCat.innerHTML = '<option value="">— Sem categoria —</option>' +
+    CACHE.categorias.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+
+  // Listar previstos do dia
+  const previstos = (FCA2_CACHE_PREV[prevUid]||[]).filter(p=>p.data===dataStr);
+  const reaisDia  = dataStr ? CACHE.lancamentos.filter(l=>l.unidade_id==prevUid&&l.data===dataStr&&!l.transferencia_id) : [];
+  const todosItens = [
+    ...reaisDia.map(l=>({ tipo:l.tipo==='E'?'real-e':'real-s', valor:parseFloat(l.valor), desc:l.descricao||'—', real:true })),
+    ...previstos.map(p=>({ tipo:p.tipo==='E'?'prev-e':'prev-s', valor:p.valor, desc:p.desc, id:p.id, prev:true }))
+  ];
+
+  const listaEl = document.getElementById('fca2-dia-lista');
+  const listaBody = document.getElementById('fca2-dia-items');
+  if (todosItens.length) {
+    listaEl.style.display = '';
+    listaBody.innerHTML = todosItens.map(i => `
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg2);border-radius:var(--radius-sm);margin-bottom:4px">
+        <span class="fca2-item ${i.tipo}" style="padding:2px 6px;flex-shrink:0">${i.tipo.includes('e')?'↑':'↓'} ${fBRL(i.valor)}</span>
+        <span style="font-size:12px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.desc}</span>
+        <span class="badge ${i.real?'g':'gr'}" style="font-size:9px">${i.real?'Real':'Previsto'}</span>
+        ${i.prev?`<button class="btn sm" onclick="abrirFCA2Realizar(${i.id})" style="padding:2px 6px;font-size:10px"><i class="ti ti-check"></i></button>`:''}
+      </div>`).join('');
+  } else {
+    listaEl.style.display = 'none';
+  }
+
+  const [a,m,d2] = (dataStr||mes+'-01').split('-');
+  document.getElementById('modal-fca2-title').textContent = dataStr ? `${d2}/${m}/${a}` : 'Novo lançamento';
+  abrirModal('modal-fca2');
+}
+
+async function salvarFCA2Lanc() {
+  if (!db) { alert('Configure o Supabase.'); return; }
+  const uid   = parseInt(document.getElementById('fca2-u').value);
+  const data  = document.getElementById('fca2-data').value;
+  const tipoRaw = document.getElementById('fca2-tipo').value; // prev-e ou prev-s
+  const tipo  = tipoRaw === 'prev-e' ? 'E' : 'S';
+  const valor = parseFloat(document.getElementById('fca2-valor').value);
+  const desc  = document.getElementById('fca2-desc').value.trim();
+  const catId = parseInt(document.getElementById('fca2-cat').value) || null;
+  if (!data)             { alert('Informe a data.'); return; }
+  if (!valor || valor<=0){ alert('Informe o valor.'); return; }
+  if (!desc)             { alert('Informe a descrição.'); return; }
+
+  showLoading('Salvando...');
+  await db.from('fluxo_calendario').insert({ unidade_id:uid, data, tipo, valor, descricao:desc, cat_id:catId });
+  hideLoading();
+  delete FCA2_CACHE_PREV[uid];
+  document.getElementById('fca2-valor').value = '';
+  document.getElementById('fca2-desc').value  = '';
+  await renderFCA2();
+  // Atualizar lista do dia no modal
+  const prevData = data;
+  const listaEl  = document.getElementById('fca2-dia-lista');
+  if (listaEl) abrirModalFCA2Lanc(prevData, uid);
+}
+
+function abrirFCA2Realizar(prevId) {
+  const uid = parseInt(document.getElementById('fca2-u').value);
+  const prev = (FCA2_CACHE_PREV[uid]||[]).find(p=>p.id===prevId);
+  if (!prev) return;
+  document.getElementById('fca2-realizar-id').value = prevId;
+  document.getElementById('fca2-realizar-info').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div><strong>${prev.desc}</strong><div style="font-size:11px;color:var(--text2);margin-top:2px">${fDate(prev.data)}</div></div>
+      <span class="${prev.tipo==='E'?'tx-e':'tx-s'}" style="font-size:16px;font-weight:700">${prev.tipo==='E'?'↑':'↓'} ${fBRL(prev.valor)}</span>
+    </div>`;
+  // Popular contas
+  const contas = CACHE.contas.filter(c=>c.unidade_id==uid);
+  document.getElementById('fca2-realizar-conta').innerHTML =
+    '<option value="">Nenhuma</option>' + contas.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+  fecharModal('modal-fca2');
+  abrirModal('modal-fca2-realizar');
+}
+
+async function realizarFCA2Lanc() {
+  if (!db) return;
+  const uid    = parseInt(document.getElementById('fca2-u').value);
+  const prevId = parseInt(document.getElementById('fca2-realizar-id').value);
+  const contaId= parseInt(document.getElementById('fca2-realizar-conta').value)||null;
+  const prev   = (FCA2_CACHE_PREV[uid]||[]).find(p=>p.id===prevId);
+  if (!prev) return;
+  const catObj = prev.cat_id ? CACHE.categorias.find(c=>c.id===prev.cat_id) : null;
+  const contaObj = contaId ? CACHE.contas.find(c=>c.id===contaId) : null;
+
+  showLoading('Realizando...');
+  // Criar lançamento real
+  await db.from('lancamentos').insert({
+    unidade_id: uid, data: prev.data, descricao: prev.desc,
+    cat_id: prev.cat_id, cat_nome: catObj?.nome||null,
+    grupo: catObj?.grupo||'nao_operacional',
+    tipo: prev.tipo, valor: prev.valor,
+    conta: contaObj?.tipo||null, conta_bancaria_id: contaId
+  });
+  // Remover previsto
+  await db.from('fluxo_calendario').delete().eq('id', prevId);
+  hideLoading();
+  fecharModal('modal-fca2-realizar');
+  delete FCA2_CACHE_PREV[uid];
+  await carregarTudo();
+  await renderFCA2();
+}
+
+async function excluirFCA2Lanc() {
+  if (!db) return;
+  const uid    = parseInt(document.getElementById('fca2-u').value);
+  const prevId = parseInt(document.getElementById('fca2-realizar-id').value);
+  showLoading('Excluindo...');
+  await db.from('fluxo_calendario').delete().eq('id', prevId);
+  hideLoading();
+  fecharModal('modal-fca2-realizar');
+  delete FCA2_CACHE_PREV[uid];
+  await renderFCA2();
+}
 
 // ============================================================
 //  UTI FINANCEIRA — Gestão de Passivo e Dívidas
