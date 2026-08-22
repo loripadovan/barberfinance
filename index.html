@@ -1721,7 +1721,8 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
 .fca2-dia.vazio{background:transparent;border-color:transparent;cursor:default}
 .fca2-dia-num{font-size:11px;font-weight:700;color:var(--text2);margin-bottom:2px}
 .fca2-dia.hoje .fca2-dia-num{color:var(--g1)}
-.fca2-item{font-size:9px;padding:1px 4px;border-radius:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.fca2-item{font-size:9px;padding:1px 4px;border-radius:3px;max-width:100%;display:flex;justify-content:space-between;align-items:center;gap:3px;overflow:hidden}
+.fca2-item span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 /* Reais = sólido */
 .fca2-item.real-e{background:#0F2820;color:#22C78E;border-left:2px solid #1D9E75}
 .fca2-item.real-s{background:#2A0A0A;color:#E05C5C;border-left:2px solid #A32D2D}
@@ -4517,12 +4518,16 @@ async function renderFCA2() {
   if (!FCA2_CACHE_PREV[uid]) await fca2CarregarPrevistos(uid);
   const previstos = FCA2_CACHE_PREV[uid] || [];
 
-  // Lançamentos reais do Supabase (mês selecionado)
-  const reais = CACHE.lancamentos.filter(l =>
+  // Lançamentos reais do Supabase — só para mês atual em diante
+  const hoje2     = new Date();
+  const mesAtual  = `${hoje2.getFullYear()}-${String(hoje2.getMonth()+1).padStart(2,'0')}`;
+  const mesEhAtual = mes >= mesAtual; // mês selecionado é atual ou futuro
+
+  const reais = mesEhAtual ? CACHE.lancamentos.filter(l =>
     l.unidade_id == uid && l.data.startsWith(mes) &&
     !l.transferencia_id &&
     !(l.cat_nome?.toLowerCase().includes('transfer'))
-  );
+  ) : []; // meses passados: sem reais, só previstos (atrasados)
 
   // Custos fixos do orçamento
   const orcItens = getOrcamento(uid);
@@ -4656,7 +4661,7 @@ async function renderFCA2() {
   const DIAS_SEMANA = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
   let html = `<div class="fca2-cal-hdr">
     <div class="fca2-cal-mes">${nomeMesStr}</div>
-    <div style="font-size:11px;color:var(--text2)">${totalAt>0?`<span style="color:var(--r1);font-weight:600"><i class="ti ti-alert-triangle"></i> ${totalAt} em atraso</span>`:''} · Clique num dia para lançar</div>
+    <div style="font-size:11px;color:var(--text2)">${totalAt>0?`<span style="color:var(--r1);font-weight:600"><i class="ti ti-alert-triangle"></i> ${totalAt} em atraso</span>`:''}</div>
   </div>
   <div class="fca2-grid">`;
 
@@ -4666,22 +4671,47 @@ async function renderFCA2() {
   for (let d=1; d<=diasNoMes; d++) {
     const dataStr = `${mes}-${String(d).padStart(2,'0')}`;
     const isHoje  = dataStr === hojeStr;
-    const isPast  = dataStr < hojeStr;
     const itens   = porDia[d] || [];
     const saldoDia = saldoPorDia[d];
     const corSaldo = saldoDia >= 0 ? 'var(--g1)' : 'var(--r1)';
 
-    const itensHtml = itens.slice(0,4).map(i => {
-      const prefix = i.tipo==='real-e'||i.tipo==='prev-e' ? '↑' : '↓';
-      const valAbrev = i.valor >= 1000 ? `${(i.valor/1000).toFixed(1)}k` : fBRL(i.valor).replace('R$','').trim();
-      return `<div class="fca2-item ${i.tipo}" title="${i.desc}: ${fBRL(i.valor)}" onclick="event.stopPropagation();${i.prev?`abrirFCA2Realizar(${i.id})`:`''`}">${prefix} ${valAbrev}</div>`;
-    }).join('');
-    const mais = itens.length > 4 ? `<div style="font-size:9px;color:var(--text3)">+${itens.length-4}</div>` : '';
+    // Totais dos reais (só números, sem detalhe)
+    const totalRealEDia = itens.filter(i=>i.tipo==='real-e').reduce((s,i)=>s+i.valor,0);
+    const totalRealSDia = itens.filter(i=>i.tipo==='real-s').reduce((s,i)=>s+i.valor,0);
 
-    html += `<div class="fca2-dia${isHoje?' hoje':''}${isPast?' passado':''}" onclick="abrirModalFCA2Lanc('${dataStr}',${uid})">
+    // Previstos e CF detalhados
+    const detalhados = itens.filter(i => i.tipo==='prev-e' || i.tipo==='prev-s' || i.tipo==='cf');
+
+    const abrev = v => v >= 1000 ? `${(v/1000).toFixed(1)}k` : fBRL(v).replace('R$','').trim();
+
+    // Linha de totais reais (se houver)
+    let reaisHtml = '';
+    if (totalRealEDia > 0 || totalRealSDia > 0) {
+      reaisHtml = `<div style="display:flex;justify-content:space-between;font-size:9px;padding:2px 0;border-bottom:.5px solid var(--border);margin-bottom:2px">
+        ${totalRealEDia>0?`<span style="color:var(--g1);font-weight:600">+${abrev(totalRealEDia)}</span>`:'<span></span>'}
+        ${totalRealSDia>0?`<span style="color:var(--r1);font-weight:600">-${abrev(totalRealSDia)}</span>`:''}
+      </div>`;
+    }
+
+    // Detalhados (prev + CF) — até 3 linhas
+    const detHtml = detalhados.slice(0,3).map(i => {
+      const prefix = (i.tipo==='prev-e') ? '+' : '-';
+      const cor    = (i.tipo==='prev-e') ? 'var(--g1)' : 'var(--r1)';
+      const opcity = i.tipo==='cf' ? 'opacity:.6;' : '';
+      const label  = i.desc.length > 11 ? i.desc.slice(0,11)+'…' : i.desc;
+      return `<div class="fca2-item ${i.tipo}" title="${i.desc}: ${fBRL(i.valor)}"
+        onclick="event.stopPropagation();${i.prev?`abrirFCA2Realizar(${i.id})`:''}">
+        <span style="${opcity}">${label}</span>
+        <span style="color:${cor};font-weight:600;flex-shrink:0">${prefix}${abrev(i.valor)}</span>
+      </div>`;
+    }).join('');
+    const mais = detalhados.length > 3 ? `<div style="font-size:9px;color:var(--text3)">+${detalhados.length-3} mais</div>` : '';
+
+    html += `<div class="fca2-dia${isHoje?' hoje':''}" onclick="abrirModalFCA2Lanc('${dataStr}',${uid})">
       <div class="fca2-dia-num">${d}</div>
-      ${itensHtml}${mais}
-      <div class="fca2-saldo" style="color:${corSaldo}">${fBRL(saldoDia)}</div>
+      ${reaisHtml}
+      ${detHtml}${mais}
+      <div class="fca2-saldo" style="color:${corSaldo}">${abrev(Math.abs(saldoDia))}${saldoDia<0?'▼':'▲'}</div>
     </div>`;
   }
   html += '</div>';
