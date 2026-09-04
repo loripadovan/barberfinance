@@ -1359,8 +1359,21 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
     <div id="orc-cf-rows"></div>
     <button class="btn sm" onclick="adicionarCFRow()" style="margin-top:8px"><i class="ti ti-plus"></i> Adicionar linha</button>
     <div style="background:var(--bg2);border-radius:var(--radius);padding:.875rem 1rem;margin-top:1rem">
-      <div style="font-size:12px;font-weight:500;color:var(--text2);margin-bottom:8px">Resumo do PE</div>
-      <div id="orc-preview-pe" style="font-size:13px"></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap">
+        <div>
+          <div style="font-size:12px;font-weight:500;color:var(--text2);margin-bottom:8px">Resumo do PE</div>
+          <div id="orc-preview-pe" style="font-size:13px"></div>
+        </div>
+        <div style="background:#E1F5EE;border:1px solid #B3E4CE;border-radius:var(--radius);padding:.75rem 1rem;min-width:180px">
+          <div style="font-size:11px;font-weight:600;color:var(--g2);margin-bottom:6px">🎯 Meta do Mês</div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <span style="font-size:12px;color:var(--text2)">R$</span>
+            <input type="number" id="orc-meta-mensal" placeholder="0,00" min="0" step="100"
+              style="width:130px;font-size:15px;font-weight:600;color:var(--g1);padding:4px 6px;border:1px solid #B3E4CE;border-radius:var(--radius-sm);background:#fff;text-align:right">
+          </div>
+          <div style="font-size:10px;color:var(--g2);margin-top:4px">Aparece no velocímetro do Dashboard</div>
+        </div>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="fecharModal('modal-orcamento')">Cancelar</button>
@@ -5830,6 +5843,18 @@ function abrirModalOrcamento(uid) {
   // Ao trocar a unidade no select, recarrega os itens dela
   sel.onchange = () => carregarItensOrcamento(parseInt(sel.value));
 
+  // Carregar meta do mês
+  const orcData = CACHE.orcamento?.find(o => o.unidade_id == (uid || CACHE.unidades[0]?.id));
+  document.getElementById('orc-meta-mensal').value = orcData?.meta_mensal || '';
+  // Atualizar meta ao trocar unidade
+  const selOrig = document.getElementById('orc-unidade-sel');
+  const origOnChange = selOrig.onchange;
+  selOrig.onchange = () => {
+    carregarItensOrcamento(parseInt(selOrig.value));
+    const od = CACHE.orcamento?.find(o => o.unidade_id == selOrig.value);
+    document.getElementById('orc-meta-mensal').value = od?.meta_mensal || '';
+  };
+
   atualizarPreviewPE();
   abrirModal('modal-orcamento');
 }
@@ -5869,17 +5894,11 @@ function atualizarPreviewPE() {
     total += val;
   });
   const pe = calcPE(total);
-  const m1 = calcMetaPct(total, CFG_META.m1);
-  const m2 = calcMetaPct(total, CFG_META.m2);
-  const m3 = calcMetaPct(total, CFG_META.m3);
   document.getElementById('orc-preview-pe').innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <div><span style="color:var(--text2)">Total custos fixos:</span> <strong>${fBRL(total)}</strong></div>
+      <div><span style="color:var(--text2)">Total custos fixos:</span> <strong style="color:var(--r1)">${fBRL(total)}</strong></div>
       <div><span style="color:var(--text2)">% variável:</span> <strong>${getCVTotalPct().toFixed(1)}%</strong></div>
       <div><span style="color:var(--text2)">Ponto de Equilíbrio:</span> <strong style="color:var(--a1)">${fBRL(pe)}</strong></div>
-      <div><span style="color:var(--text2)">Meta ${CFG_META.m1}% lucro:</span> <strong style="color:var(--g1)">${m1?fBRL(m1):'—'}</strong></div>
-      <div><span style="color:var(--text2)">Meta ${CFG_META.m2}% lucro:</span> <strong style="color:var(--g1)">${m2?fBRL(m2):'—'}</strong></div>
-      <div><span style="color:var(--text2)">Meta ${CFG_META.m3}% lucro:</span> <strong style="color:var(--g1)">${m3?fBRL(m3):'—'}</strong></div>
     </div>
   `;
 }
@@ -5899,15 +5918,23 @@ async function salvarOrcamento(replicarTodas) {
     if (nome && valor > 0) itens.push({ nome, valor, dia });
   });
 
+  const metaMensal = parseFloat(document.getElementById('orc-meta-mensal').value) || 0;
   const uidsParaSalvar = replicarTodas ? CACHE.unidades.map(u => u.id) : [uid];
   showLoading('Salvando orçamento...');
 
   for (const u_id of uidsParaSalvar) {
     const existe = CACHE.orcamentos.find(o => o.unidade_id === u_id);
+    const payload = { itens, meta_mensal: metaMensal, atualizado_em: new Date().toISOString() };
     if (existe) {
-      await db.from('orcamento_unidade').update({ itens, atualizado_em: new Date().toISOString() }).eq('unidade_id', u_id);
+      await db.from('orcamento_unidade').update(payload).eq('unidade_id', u_id);
     } else {
-      await db.from('orcamento_unidade').insert({ unidade_id: u_id, itens });
+      await db.from('orcamento_unidade').insert({ unidade_id: u_id, ...payload });
+    }
+    // Atualizar cache local
+    if (CACHE.orcamento) {
+      const idx = CACHE.orcamento.findIndex(o => o.unidade_id === u_id);
+      if (idx >= 0) CACHE.orcamento[idx].meta_mensal = metaMensal;
+      else CACHE.orcamento.push({ unidade_id: u_id, meta_mensal: metaMensal });
     }
   }
 
