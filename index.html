@@ -59,7 +59,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:va
 .sidebar-toggle:hover{color:var(--g1)}
 .sidebar.collapsed .sidebar-toggle{justify-content:center;padding:0 0 6px}
 .main{flex:1;overflow-y:auto;background:var(--bg)}
-.content{padding:1.5rem}
+.content{padding:1.5rem;background:#EBEBEB}
 .page{display:none}.page.active{display:block}
 .topbar{padding:.875rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;background:var(--bg);z-index:10}
 .topbar-title{font-size:15px;font-weight:600}
@@ -89,6 +89,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:va
 .stat-value{font-size:18px;font-weight:600}
 .stat-value.g{color:var(--g1)}.stat-value.r{color:var(--r1)}.stat-value.a{color:var(--a1)}
 .stat-delta{font-size:11px;margin-top:3px;color:var(--text3)}
+.active-period{background:var(--g1)!important;color:#fff!important;border-color:var(--g1)!important}
 
 .btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:var(--radius-sm);font-size:13px;cursor:pointer;border:1px solid var(--border);background:var(--bg);color:var(--text);transition:all .15s;white-space:nowrap}
 .btn:hover{background:var(--bg2)}.btn:disabled{opacity:.5;cursor:default}
@@ -145,6 +146,37 @@ tbody tr:last-child{border-bottom:none}
 
 /* ===== VELOCÍMETRO METAS ===== */
 .meta-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:1.25rem}
+/* ── Novo velocímetro simplificado ── */
+.vel2-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:1rem}
+.vel2-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem}
+.vel2-nome{font-size:13px;font-weight:700;color:var(--text)}
+.vel2-receita{font-size:13px;font-weight:700;color:var(--g1)}
+.vel2-track-wrap{position:relative;margin-bottom:.5rem}
+.vel2-track{height:14px;background:var(--bg3);border-radius:7px;overflow:visible;position:relative}
+.vel2-fill{height:100%;border-radius:7px;transition:width 1s cubic-bezier(.4,0,.2,1);position:relative;min-width:4px}
+.vel2-fill.ok{background:linear-gradient(90deg,#1D9E75,#22C78E)}
+.vel2-fill.warn{background:linear-gradient(90deg,#C9A227,#F0C040)}
+.vel2-fill.danger{background:linear-gradient(90deg,#A32D2D,#E05C5C)}
+/* Marcadores PE e Meta */
+.vel2-marker{position:absolute;top:-4px;width:3px;height:22px;border-radius:2px;z-index:2}
+.vel2-marker.pe{background:#A32D2D}
+.vel2-marker.meta{background:#1D9E75}
+.vel2-marker-label{position:absolute;top:26px;font-size:9px;font-weight:700;white-space:nowrap;transform:translateX(-50%)}
+/* Cards PE e Meta */
+.vel2-cards{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:.75rem}
+.vel2-cel{border-radius:var(--radius-sm);padding:8px 10px;text-align:center}
+.vel2-cel.pe{background:#FBE8E6;border:1px solid #E8BDBD}
+.vel2-cel.meta{background:#E1F5EE;border:1px solid #B3E4CE}
+.vel2-cel-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.vel2-cel.pe .vel2-cel-label{color:#A32D2D}
+.vel2-cel.meta .vel2-cel-label{color:#1D9E75}
+.vel2-cel-val{font-size:14px;font-weight:700}
+.vel2-cel.pe .vel2-cel-val{color:#A32D2D}
+.vel2-cel.meta .vel2-cel-val{color:#1D9E75}
+.vel2-cel-sub{font-size:11px;margin-top:2px;font-weight:500}
+/* Pulsando quando está próximo */
+@keyframes pulse-bar{0%,100%{opacity:1}50%{opacity:.7}}
+.vel2-fill.pulsing{animation:pulse-bar 1.5s ease-in-out infinite}
 .meta-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem}
 .meta-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem}
 .meta-unit{font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px}
@@ -326,8 +358,9 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
     <!-- ==================== DASHBOARD ==================== -->
     <div id="page-dashboard" class="page active">
       <div class="topbar">
-        <div><div class="topbar-title">Dashboard da Rede</div><div class="topbar-sub" id="db-sub">—</div></div>
+        <div><div class="topbar-title">Dashboard</div><div class="topbar-sub" id="db-sub">—</div></div>
         <div class="topbar-right">
+          <select id="db-u" onchange="renderDashboard()" style="width:160px"></select>
           <select id="db-mes" onchange="renderDashboard()" style="width:160px"></select>
           <button class="btn sm" onclick="atualizarDados()" id="btn-refresh" title="Atualizar dados do Supabase"><i class="ti ti-refresh"></i> Atualizar</button>
         </div>
@@ -337,7 +370,14 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
         <div class="stat-grid" id="db-stats"></div>
         <div class="grid2">
           <div class="card">
-            <div class="card-title"><i class="ti ti-chart-bar"></i> Evolução mensal</div>
+            <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+              <span><i class="ti ti-chart-bar"></i> Evolução mensal</span>
+              <div style="display:flex;gap:4px">
+                <button id="chart-btn-3"  class="btn sm active-period" onclick="setChartPeriod(3)"  style="padding:2px 8px;font-size:11px;font-weight:600">3M</button>
+                <button id="chart-btn-6"  class="btn sm"               onclick="setChartPeriod(6)"  style="padding:2px 8px;font-size:11px">6M</button>
+                <button id="chart-btn-12" class="btn sm"               onclick="setChartPeriod(12)" style="padding:2px 8px;font-size:11px">12M</button>
+              </div>
+            </div>
             <div style="display:flex;gap:12px;margin-bottom:.5rem;font-size:11px">
               <span style="display:flex;align-items:center;gap:4px;color:var(--text2)"><span style="width:10px;height:10px;background:var(--g1);border-radius:2px;display:inline-block"></span>Entradas</span>
               <span style="display:flex;align-items:center;gap:4px;color:var(--text2)"><span style="width:10px;height:10px;background:#E24B4A;border-radius:2px;display:inline-block"></span>Saídas</span>
@@ -345,7 +385,7 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
             <div class="chart-area" id="chart-evolucao"></div>
           </div>
           <div class="card">
-            <div class="card-title"><i class="ti ti-trophy"></i> Ranking — resultado operacional</div>
+            <div class="card-title"><i class="ti ti-trophy"></i> Ranking por Receita</div>
             <div id="rank-list"></div>
           </div>
         </div>
@@ -2036,6 +2076,7 @@ async function carregarTudo() {
     CACHE.lancamentos   = lancamentosCompletos;
     CACHE.contas        = cb.data   || [];
     CACHE.orcamentos    = orc.data  || [];
+    CACHE.orcamento     = orc.data  || []; // alias usado em metaCard e salvarMetaMensal
     CACHE.calManual     = cm.data   || [];
     CACHE.emprestimos   = emp.data  || [];
     CACHE.empPagamentos = epag.data || [];
@@ -2108,7 +2149,7 @@ function populateCatSel(sid) {
   s.innerHTML = CACHE.categorias.map(c => `<option value="${c.id}">${c.nome} (${GRUPOS[c.grupo]})</option>`).join('');
 }
 function populateTodosSelects() {
-  ['sel-unidade','massa-u','fil-u','dre-u','fc-u'].forEach(sid => {
+  ['sel-unidade','massa-u','fil-u','dre-u','fc-u','db-u'].forEach(sid => {
     const el = document.getElementById(sid); if(!el) return;
     const allLabel = sid === 'sel-unidade' ? 'Selecionar unidade...' : 'Todas as unidades';
     populateU(sid, allLabel);
@@ -2150,7 +2191,7 @@ function atualizarPillSem() {
 //  NAVEGAÇÃO
 // ============================================================
 const PAGE_RENDERS = {
-  dashboard:  () => { populateMes('db-mes'); renderDashboard(); },
+  dashboard:  () => { populateMes('db-mes'); populateU('db-u','Rede completa'); renderDashboard(); },
   comparativo: () => { populateMes('cmp-mes'); renderComparativo(); },
   importar:   () => { populateU('sel-unidade','Selecionar unidade...'); document.getElementById('sel-conta').innerHTML='<option value="">Selecione a unidade</option>'; },
   massa:      renderMassa,
@@ -2218,55 +2259,114 @@ function calcMeta(list) {
 }
 
 // ============================================================
-//  DASHBOARD
+//  DASHBOARD — GRÁFICO EVOLUÇÃO
 // ============================================================
-function renderDashboard() {
-  const mes = document.getElementById('db-mes').value || getMeses()[0]; if(!mes) return;
-  document.getElementById('db-sub').textContent = nomeMes(mes) + ' — ' + CACHE.unidades.length + ' unidades';
-  const list = CACHE.lancamentos.filter(l => l.data.startsWith(mes));
-  const d    = calcDRE(list);
-  const meses= getMeses();
-  const prevMes = meses[meses.indexOf(mes)+1];
-  const dPrev= prevMes ? calcDRE(CACHE.lancamentos.filter(l=>l.data.startsWith(prevMes))) : null;
-  const delta= (a,b) => b && b>0 ? ((a-b)/b*100).toFixed(1) : null;
-  const dR = delta(d.receita, dPrev?.receita);
-  const dO = delta(d.res_op, dPrev?.res_op);
+let CHART_PERIOD = 3; // padrão: últimos 3 meses
 
-  document.getElementById('db-stats').innerHTML = `
-    <div class="stat"><div class="stat-label">Receita da Rede</div><div class="stat-value g">${fBRL(d.receita)}</div><div class="stat-delta">${dR?`${dR>=0?'▲':'▼'} ${Math.abs(dR)}% vs mês anterior`:'—'}</div></div>
-    <div class="stat"><div class="stat-label">Total de Custos</div><div class="stat-value r">${fBRL(d.cv+d.cf)}</div><div class="stat-delta">${fPct(d.receita?(d.cv+d.cf)/d.receita:0)} da receita</div></div>
-    <div class="stat"><div class="stat-label">Resultado Operacional</div><div class="stat-value ${d.res_op>=0?'g':'r'}">${fBRL(d.res_op)}</div><div class="stat-delta">${dO?`${dO>=0?'▲':'▼'} ${Math.abs(dO)}% vs anterior`:'—'}</div></div>
-    <div class="stat"><div class="stat-label">Margem Líquida</div><div class="stat-value ${d.res_liq>=0?'g':'r'}">${fPct(d.receita?d.res_liq/d.receita:0)}</div><div class="stat-delta">${fBRL(d.res_liq)}</div></div>
-  `;
+function setChartPeriod(n) {
+  CHART_PERIOD = n;
+  [3,6,12].forEach(x => {
+    const btn = document.getElementById(`chart-btn-${x}`);
+    if (btn) btn.classList.toggle('active-period', x === n);
+  });
+  renderGraficoEvolucao();
+}
 
-  // Gráfico — só receitas e custos operacionais (exclui transferências, empréstimos, nao_operacional)
+function renderGraficoEvolucao() {
+  const uid    = document.getElementById('db-u')?.value || '';
+  const meses  = getMeses();
+  const allMeses = [...meses].reverse(); // do mais antigo ao mais recente
+  const slice  = allMeses.slice(-CHART_PERIOD); // últimos N meses
+
   const GRUPOS_OP = ['receita','custo_variavel','custo_fixo'];
-  const allMeses = [...meses].reverse();
-  const maxV = Math.max(...allMeses.map(m => {
-    const ll = CACHE.lancamentos.filter(x=>x.data.startsWith(m) && GRUPOS_OP.includes(x.grupo));
+  const maxV = Math.max(...slice.map(m => {
+    const ll = CACHE.lancamentos.filter(x => x.data.startsWith(m) && GRUPOS_OP.includes(x.grupo) && (!uid||x.unidade_id==uid));
     return Math.max(
       ll.filter(x=>x.tipo==='E').reduce((s,x)=>s+parseFloat(x.valor||0),0),
       ll.filter(x=>x.tipo==='S').reduce((s,x)=>s+parseFloat(x.valor||0),0)
     );
   }), 1);
-  document.getElementById('chart-evolucao').innerHTML = allMeses.map(m => {
-    const ll = CACHE.lancamentos.filter(x=>x.data.startsWith(m) && GRUPOS_OP.includes(x.grupo));
+
+  document.getElementById('chart-evolucao').innerHTML = slice.map(m => {
+    const ll = CACHE.lancamentos.filter(x => x.data.startsWith(m) && GRUPOS_OP.includes(x.grupo) && (!uid||x.unidade_id==uid));
     const e  = ll.filter(x=>x.tipo==='E').reduce((s,x)=>s+parseFloat(x.valor||0),0);
     const s  = ll.filter(x=>x.tipo==='S').reduce((s,x)=>s+parseFloat(x.valor||0),0);
     const hE = Math.round(e/maxV*100), hS = Math.round(s/maxV*100);
-    const [y,mo]=m.split('-'); const lb=new Date(y,mo-1).toLocaleString('pt-BR',{month:'short'});
+    const [y,mo] = m.split('-');
+    const lb = new Date(y, mo-1).toLocaleString('pt-BR',{month:'short'});
     return `<div class="chart-group"><div class="chart-bars"><div class="bar-e" style="height:${hE}px" title="Receita: ${fBRL(e)}"></div><div class="bar-s" style="height:${hS}px" title="Custos Op.: ${fBRL(s)}"></div></div><div class="chart-label">${lb}</div></div>`;
   }).join('');
+}
 
-  // Ranking
-  const rank = CACHE.unidades.map(u => ({ u, d:calcDRE(CACHE.lancamentos.filter(l=>l.unidade_id===u.id&&l.data.startsWith(mes))) })).sort((a,b)=>b.d.res_op-a.d.res_op);
-  const maxOp = Math.max(...rank.map(r=>Math.abs(r.d.res_op)),1);
+// ============================================================
+//  DASHBOARD
+// ============================================================
+function renderDashboard() {
+  const mes = document.getElementById('db-mes').value || getMeses()[0]; if(!mes) return;
+  const uid = document.getElementById('db-u').value; // '' = rede toda
+
+  // Filtrar lançamentos por unidade e mês
+  const list = CACHE.lancamentos.filter(l =>
+    l.data.startsWith(mes) && (!uid || l.unidade_id == uid)
+  );
+  const d = calcDRE(list);
+
+  // Subtítulo
+  const unome = uid ? (CACHE.unidades.find(u=>u.id==uid)?.nome||'?') : 'Rede completa';
+  document.getElementById('db-sub').textContent = nomeMes(mes) + ' — ' + unome;
+
+  // Delta vs mês anterior
+  const meses   = getMeses();
+  const prevMes = meses[meses.indexOf(mes)+1];
+  const listPrev= prevMes ? CACHE.lancamentos.filter(l=>l.data.startsWith(prevMes)&&(!uid||l.unidade_id==uid)) : [];
+  const dPrev   = prevMes ? calcDRE(listPrev) : null;
+  const delta   = (a,b) => b && b>0 ? ((a-b)/b*100).toFixed(1) : null;
+  const dR = delta(d.receita, dPrev?.receita);
+  const dO = delta(d.res_op,  dPrev?.res_op);
+
+  // KPIs
+  document.getElementById('db-stats').innerHTML = `
+    <div class="stat"><div class="stat-label">Receita</div><div class="stat-value g">${fBRL(d.receita)}</div><div class="stat-delta">${dR?`${dR>=0?'▲':'▼'} ${Math.abs(dR)}% vs mês anterior`:'—'}</div></div>
+    <div class="stat"><div class="stat-label">Total de Custos</div><div class="stat-value r">${fBRL(d.cv+d.cf)}</div><div class="stat-delta">${fPct(d.receita?(d.cv+d.cf)/d.receita:0)} da receita</div></div>
+    <div class="stat"><div class="stat-label">Resultado Líquido</div><div class="stat-value ${d.res_liq>=0?'g':'r'}">${fBRL(d.res_liq)}</div><div class="stat-delta">${dO?`${dO>=0?'▲':'▼'} ${Math.abs(dO)}% vs anterior`:'—'}</div></div>
+    <div class="stat"><div class="stat-label">Lucro Líquido</div><div class="stat-value ${d.res_liq>=0?'g':'r'}">${fPct(d.receita?d.res_liq/d.receita:0)}</div><div class="stat-delta">${fBRL(d.res_liq)}</div></div>
+  `;
+
+  // Gráfico evolução — delegado para renderGraficoEvolucao (respeita CHART_PERIOD)
+  renderGraficoEvolucao();
+
+  // ── RANKING — ordenado por Receita, mostra Receita + % Lucro Líquido ──────
+  const unidadesRank = uid
+    ? CACHE.unidades.filter(u => u.id == uid)
+    : CACHE.unidades;
+
+  const rank = unidadesRank
+    .map(u => ({ u, d: calcDRE(CACHE.lancamentos.filter(l=>l.unidade_id===u.id&&l.data.startsWith(mes))) }))
+    .sort((a,b) => b.d.receita - a.d.receita); // ordena por RECEITA
+
+  const maxRec = Math.max(...rank.map(r => r.d.receita), 1);
+
   document.getElementById('rank-list').innerHTML = rank.map((r,i) => {
-    const pct = Math.min(100,(Math.abs(r.d.res_op)/maxOp)*100).toFixed(0);
-    return `<div class="rank-row"><div class="rank-num">${i+1}</div><div class="rank-avatar">${init(r.u.nome)}</div><div class="rank-info"><div class="rank-name">${r.u.nome}</div><div class="rank-sub">${fBRL(r.d.receita)} receita</div></div><div class="rank-bar-bg"><div class="rank-bar-fill" style="width:${pct}%;background:${r.d.res_op>=0?'var(--g1)':'#E24B4A'}"></div></div><div class="rank-value ${r.d.res_op>=0?'tx-e':'tx-s'}">${fBRL(r.d.res_op)}</div></div>`;
+    const pctRec  = Math.min(100,(r.d.receita/maxRec)*100).toFixed(0);
+    const pctLiq  = r.d.receita > 0 ? (r.d.res_liq/r.d.receita*100) : 0;
+    const corLiq  = pctLiq >= 10 ? 'var(--g1)' : pctLiq >= 0 ? 'var(--a1)' : 'var(--r1)';
+    const medalha = i===0 ? '🥇' : i===1 ? '🥈' : i===2 ? '🥉' : `${i+1}`;
+    return `<div class="rank-row">
+      <div class="rank-num">${medalha}</div>
+      <div class="rank-avatar">${init(r.u.nome)}</div>
+      <div class="rank-info">
+        <div class="rank-name">${r.u.nome}</div>
+        <div class="rank-bar-bg" style="margin-top:4px"><div class="rank-bar-fill" style="width:${pctRec}%;background:var(--g1)"></div></div>
+      </div>
+      <div style="text-align:right;min-width:90px">
+        <div class="rank-value tx-e" style="font-size:13px">${fBRL(r.d.receita)}</div>
+        <div style="font-size:11px;font-weight:600;color:${corLiq};margin-top:2px">${pctLiq>=0?'+':''}${pctLiq.toFixed(1)}% liq.</div>
+      </div>
+    </div>`;
   }).join('');
 
-  document.getElementById('db-metas').innerHTML = CACHE.unidades.map(u => metaCard(u, mes)).join('');
+  // Velocímetro + saúde financeira (só se rede toda ou filtrado por unidade)
+  document.getElementById('db-metas').innerHTML = unidadesRank.map(u => metaCard(u, mes)).join('');
 }
 
 // ============================================================
@@ -2296,29 +2396,65 @@ function calcDadosMeta(uid, mes) {
 }
 
 function metaCard(u, mes) {
-  const d = calcDadosMeta(u.id, mes);
-  const maxRef = d.m3 ? d.m3*1.15 : (d.pe||10000)*1.5;
-  const recPct  = Math.min(100, maxRef>0 ? (d.receita/maxRef)*100 : 0).toFixed(1);
-  const pePct   = Math.min(100, maxRef>0 ? ((d.pe||0)/maxRef)*100 : 0).toFixed(1);
-  const falta   = val => { if(!val) return '—'; const f=val-d.receita; return f>0 ? `falta ${fBRL(f)}` : '<span style="color:var(--g1)">✓ atingido</span>'; };
-  const cor     = val => d.receita>=(val||Infinity) ? 'var(--g1)' : d.receita>=(val||Infinity)*0.7 ? 'var(--a1)' : 'var(--r1)';
-  const fillClr = d.receita>=(d.pe||Infinity) ? 'var(--g1)' : d.receita>=(d.pe||Infinity)*0.7 ? '#EF9F27' : '#E24B4A';
+  const d       = calcDadosMeta(u.id, mes);
+  const orcData = CACHE.orcamento?.find(o => o.unidade_id === u.id);
+  const metaVal = parseFloat(orcData?.meta_mensal || 0);
+  const pe      = d.pe || 0;
 
-  return `<div class="meta-card">
-    <div class="meta-header">
-      <div class="meta-unit"><div class="meta-avatar">${init(u.nome)}</div>${u.nome}</div>
-      <div class="meta-faturado">Faturado: <strong>${fBRL(d.receita)}</strong></div>
+  // Referência máxima: meta se definida, senão PE * 1.5
+  const maxRef  = metaVal > 0 ? metaVal * 1.15 : pe > 0 ? pe * 1.5 : 10000;
+
+  const recPct  = Math.min(100, maxRef > 0 ? (d.receita / maxRef) * 100 : 0);
+  const pePct   = Math.min(100, maxRef > 0 ? (pe / maxRef) * 100 : 0);
+  const metaPct = Math.min(100, maxRef > 0 ? (metaVal / maxRef) * 100 : 0);
+
+  // Cor da barra baseada na posição relativa ao PE e à Meta
+  const fillClr = d.receita >= (metaVal||pe) ? 'ok'
+                : d.receita >= pe             ? 'warn'
+                : d.receita >= pe * 0.7       ? 'warn'
+                : 'danger';
+
+  // Pulsando quando está entre 85% e 99% do PE
+  const pulsing = d.receita >= pe * 0.85 && d.receita < pe ? ' pulsing' : '';
+
+  const faltaPE   = pe - d.receita;
+  const faltaMeta = metaVal > 0 ? metaVal - d.receita : null;
+
+  const statusPE   = faltaPE   <= 0 ? `<span style="color:var(--g1);font-weight:600">✓ atingido</span>`   : `falta ${fBRL(faltaPE)}`;
+  const statusMeta = faltaMeta === null ? '—'
+                   : faltaMeta <= 0    ? `<span style="color:var(--g1);font-weight:600">✓ atingido</span>`
+                   : `falta ${fBRL(faltaMeta)}`;
+
+  return `<div class="vel2-card">
+    <div class="vel2-header">
+      <div class="vel2-nome"><div class="meta-avatar" style="display:inline-flex;margin-right:6px">${init(u.nome)}</div>${u.nome}</div>
+      <div class="vel2-receita">${fBRL(d.receita)}</div>
     </div>
-    <div class="track-labels"><span>R$ 0</span><span>PE: ${fBRL(d.pe||0)}</span><span>${fBRL(maxRef)}</span></div>
-    <div class="track-bar">
-      <div class="track-fill" style="width:${recPct}%;background:${fillClr}"></div>
-      <div class="track-marker" style="left:${pePct}%" title="Ponto de Equilíbrio"></div>
+    <!-- Barra de progresso com marcadores -->
+    <div class="vel2-track-wrap">
+      <div class="vel2-track">
+        <div class="vel2-fill ${fillClr}${pulsing}" style="width:${recPct.toFixed(1)}%"></div>
+        ${pe > 0 ? `<div class="vel2-marker pe" style="left:${pePct.toFixed(1)}%" title="PE: ${fBRL(pe)}"></div>` : ''}
+        ${metaVal > 0 ? `<div class="vel2-marker meta" style="left:${metaPct.toFixed(1)}%" title="Meta: ${fBRL(metaVal)}"></div>` : ''}
+      </div>
+      <!-- Labels dos marcadores -->
+      <div style="position:relative;height:22px;margin-top:2px">
+        ${pe > 0 ? `<div class="vel2-marker-label" style="left:${pePct.toFixed(1)}%;color:#A32D2D">PE</div>` : ''}
+        ${metaVal > 0 ? `<div class="vel2-marker-label" style="left:${metaPct.toFixed(1)}%;color:#1D9E75">Meta</div>` : ''}
+      </div>
     </div>
-    <div class="meta-metas">
-      <div class="meta-cel"><div class="meta-cel-label">Equilíbrio</div><div class="meta-cel-valor" style="color:${cor(d.pe)}">${fBRL(d.pe||0)}</div><div class="meta-cel-falta">${falta(d.pe)}</div></div>
-      <div class="meta-cel"><div class="meta-cel-label">Lucro ${CFG_META.m1}%</div><div class="meta-cel-valor" style="color:${cor(d.m1)}">${d.m1?fBRL(d.m1):'—'}</div><div class="meta-cel-falta">${falta(d.m1)}</div></div>
-      <div class="meta-cel"><div class="meta-cel-label">Lucro ${CFG_META.m2}%</div><div class="meta-cel-valor" style="color:${cor(d.m2)}">${d.m2?fBRL(d.m2):'—'}</div><div class="meta-cel-falta">${falta(d.m2)}</div></div>
-      <div class="meta-cel"><div class="meta-cel-label">Lucro ${CFG_META.m3}%</div><div class="meta-cel-valor" style="color:${cor(d.m3)}">${d.m3?fBRL(d.m3):'—'}</div><div class="meta-cel-falta">${falta(d.m3)}</div></div>
+    <!-- Cards PE e Meta -->
+    <div class="vel2-cards">
+      <div class="vel2-cel pe">
+        <div class="vel2-cel-label">🔴 Ponto de Equilíbrio</div>
+        <div class="vel2-cel-val">${fBRL(pe)}</div>
+        <div class="vel2-cel-sub" style="color:${faltaPE<=0?'var(--g1)':'var(--r1)'}">${statusPE}</div>
+      </div>
+      <div class="vel2-cel meta">
+        <div class="vel2-cel-label">🎯 Meta do Mês</div>
+        <div class="vel2-cel-val">${metaVal > 0 ? fBRL(metaVal) : '—'}</div>
+        <div class="vel2-cel-sub" style="color:${faltaMeta!==null&&faltaMeta<=0?'var(--g1)':'var(--text2)'}">${statusMeta}</div>
+      </div>
     </div>
     ${renderSaudeCard(u.id, mes)}
   </div>`;
@@ -4684,14 +4820,8 @@ async function renderFCA2() {
 
     const abrev = v => v >= 1000 ? `${(v/1000).toFixed(1)}k` : fBRL(v).replace('R$','').trim();
 
-    // Linha de totais reais (se houver)
+    // Linha de totais reais — oculta visualmente, já computada no saldo
     let reaisHtml = '';
-    if (totalRealEDia > 0 || totalRealSDia > 0) {
-      reaisHtml = `<div style="display:flex;justify-content:space-between;font-size:9px;padding:2px 0;border-bottom:.5px solid var(--border);margin-bottom:2px">
-        ${totalRealEDia>0?`<span style="color:var(--g1);font-weight:600">+${abrev(totalRealEDia)}</span>`:'<span></span>'}
-        ${totalRealSDia>0?`<span style="color:var(--r1);font-weight:600">-${abrev(totalRealSDia)}</span>`:''}
-      </div>`;
-    }
 
     // Detalhados (prev + CF) — até 3 linhas
     const detHtml = detalhados.slice(0,3).map(i => {
@@ -5591,14 +5721,13 @@ function renderOrcamento() {
   }
 
   grid.innerHTML = CACHE.unidades.map(u => {
-    const orc = ORCAMENTO[u.id] || { itens: [] };
+    const orc     = ORCAMENTO[u.id] || { itens: [] };
+    const orcData = CACHE.orcamento?.find(o => o.unidade_id === u.id);
     const cfTotal = orc.itens.reduce((s, i) => s + parseFloat(i.valor || 0), 0);
-    const pe  = calcPE(cfTotal);
-    const m1  = calcMetaPct(cfTotal, CFG_META.m1);
-    const m2  = calcMetaPct(cfTotal, CFG_META.m2);
-    const m3  = calcMetaPct(cfTotal, CFG_META.m3);
-    const ini = init(u.nome);
-    const temDados = orcItens.length > 0;
+    const pe      = calcPE(cfTotal);
+    const metaVal = parseFloat(orcData?.meta_mensal || 0);
+    const ini     = init(u.nome);
+    const temDados = orc.itens.length > 0;
 
     return `<div class="card" style="margin-bottom:1rem">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
@@ -5613,7 +5742,7 @@ function renderOrcamento() {
       </div>
 
       ${!temDados ? `<div class="alert warn" style="margin:0"><i class="ti ti-alert-triangle"></i>Custos fixos não configurados — PE indisponível.</div>` : `
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:1rem">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:1rem">
         <div style="background:var(--bg2);border-radius:var(--radius);padding:.75rem;text-align:center">
           <div style="font-size:10px;color:var(--text2);margin-bottom:3px">Custos Fixos</div>
           <div style="font-size:15px;font-weight:600;color:var(--r1)">${fBRL(cfTotal)}</div>
@@ -5622,28 +5751,44 @@ function renderOrcamento() {
           <div style="font-size:10px;color:var(--text2);margin-bottom:3px">Ponto de Equilíbrio</div>
           <div style="font-size:15px;font-weight:600;color:var(--a1)">${fBRL(pe)}</div>
         </div>
-        <div style="background:var(--bg2);border-radius:var(--radius);padding:.75rem;text-align:center">
-          <div style="font-size:10px;color:var(--text2);margin-bottom:3px">Meta ${CFG_META.m1}% lucro</div>
-          <div style="font-size:15px;font-weight:600;color:var(--g1)">${m1 ? fBRL(m1) : '—'}</div>
-        </div>
-        <div style="background:var(--bg2);border-radius:var(--radius);padding:.75rem;text-align:center">
-          <div style="font-size:10px;color:var(--text2);margin-bottom:3px">Meta ${CFG_META.m2}% lucro</div>
-          <div style="font-size:15px;font-weight:600;color:var(--g1)">${m2 ? fBRL(m2) : '—'}</div>
-        </div>
-        <div style="background:var(--bg2);border-radius:var(--radius);padding:.75rem;text-align:center">
-          <div style="font-size:10px;color:var(--text2);margin-bottom:3px">Meta ${CFG_META.m3}% lucro</div>
-          <div style="font-size:15px;font-weight:600;color:var(--g1)">${m3 ? fBRL(m3) : '—'}</div>
+        <div style="background:#E1F5EE;border:1px solid #B3E4CE;border-radius:var(--radius);padding:.75rem;text-align:center">
+          <div style="font-size:10px;color:var(--g2);font-weight:600;margin-bottom:6px">🎯 Meta do Mês</div>
+          <div style="display:flex;align-items:center;gap:4px;justify-content:center">
+            <span style="font-size:12px;color:var(--text2)">R$</span>
+            <input type="number" value="${metaVal||''}" placeholder="0,00" min="0" step="100"
+              id="meta-input-${u.id}"
+              style="width:110px;font-size:15px;font-weight:600;color:var(--g1);padding:3px 6px;border:1px solid #B3E4CE;border-radius:var(--radius-sm);background:#fff;text-align:right"
+              onchange="salvarMetaMensal(${u.id}, this.value)">
+          </div>
+          <div style="font-size:10px;color:var(--g2);margin-top:3px" id="meta-saved-${u.id}"></div>
         </div>
       </div>
       <div style="overflow-x:auto">
         <table style="font-size:12px">
           <thead><tr><th>Item de custo fixo</th><th>Vence dia</th><th style="text-align:right">Valor mensal</th></tr></thead>
-          <tbody>${orcItens.map(i => `<tr><td>${i.nome}</td><td>${i.dia ? `<span class="badge gr">Dia ${i.dia}</span>` : '—'}</td><td style="text-align:right;color:var(--r1);font-weight:500">${fBRL(i.valor)}</td></tr>`).join('')}</tbody>
+          <tbody>${orc.itens.map(i => `<tr><td>${i.nome}</td><td>${i.dia ? `<span class="badge gr">Dia ${i.dia}</span>` : '—'}</td><td style="text-align:right;color:var(--r1);font-weight:500">${fBRL(i.valor)}</td></tr>`).join('')}</tbody>
           <tfoot><tr style="border-top:2px solid var(--border2)"><td style="font-weight:600;padding-top:8px">Total Custos Fixos</td><td></td><td style="text-align:right;font-weight:600;padding-top:8px">${fBRL(cfTotal)}</td></tr></tfoot>
         </table>
       </div>`}
     </div>`;
   }).join('');
+}
+
+async function salvarMetaMensal(uid, valor) {
+  if (!db) return;
+  const val = parseFloat(valor) || 0;
+  await db.from('orcamento_unidade').upsert(
+    { unidade_id: uid, meta_mensal: val },
+    { onConflict: 'unidade_id' }
+  );
+  // Atualizar cache local
+  if (!CACHE.orcamento) CACHE.orcamento = [];
+  const idx = CACHE.orcamento.findIndex(o => o.unidade_id === uid);
+  if (idx >= 0) CACHE.orcamento[idx].meta_mensal = val;
+  else CACHE.orcamento.push({ unidade_id: uid, meta_mensal: val });
+  // Feedback visual
+  const el = document.getElementById(`meta-saved-${uid}`);
+  if (el) { el.textContent = '✓ salvo'; setTimeout(() => el.textContent = '', 2000); }
 }
 
 function atualizarCVInput(idx, val) {
