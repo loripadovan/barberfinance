@@ -40,6 +40,7 @@
 [data-theme="dark"] .modal{background:#1C1C1C}
 [data-theme="dark"] .loading-overlay{background:rgba(20,20,20,.85)}
 [data-theme="dark"] .login-screen{background:#0E0804}
+[data-theme="dark"] .content{background:#141414}
 [data-theme="dark"] .login-card{background:#1C1C1C;border-color:var(--border)}
 [data-theme="dark"] mark{background:#7A6B20;color:#F0F0EE}
 [data-theme="dark"] .saude-bar-wrap{background:var(--bg3)}
@@ -59,7 +60,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:va
 .sidebar-toggle:hover{color:var(--g1)}
 .sidebar.collapsed .sidebar-toggle{justify-content:center;padding:0 0 6px}
 .main{flex:1;overflow-y:auto;background:var(--bg)}
-.content{padding:1.5rem;background:#EBEBEB}
+.content{padding:1.5rem;background:#FFFFFF}
 .page{display:none}.page.active{display:block}
 .topbar{padding:.875rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;background:var(--bg);z-index:10}
 .topbar-title{font-size:15px;font-weight:600}
@@ -864,7 +865,7 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
     <!-- ==================== ORÇAMENTO / PE ==================== -->
     <div id="page-orcamento" class="page">
       <div class="topbar">
-        <div><div class="topbar-title">Orçamento e Ponto de Equilíbrio</div><div class="topbar-sub">Custos fixos por unidade — base para cálculo do PE e metas</div></div>
+        <div><div class="topbar-title">Orçamento e Ponto de Equilíbrio</div><div class="topbar-sub">Custos fixos e 🎯 Meta do Mês por unidade — base para o velocímetro do Dashboard</div></div>
         <div class="topbar-right">
           <button class="btn primary" onclick="abrirModalOrcamento(null)"><i class="ti ti-plus"></i> Configurar unidade</button>
         </div>
@@ -2456,8 +2457,7 @@ function metaCard(u, mes) {
         <div class="vel2-cel-sub" style="color:${faltaMeta!==null&&faltaMeta<=0?'var(--g1)':'var(--text2)'}">${statusMeta}</div>
       </div>
     </div>
-    ${renderSaudeCard(u.id, mes)}
-  </div>`;
+    </div>`;
 }
 function renderMetas() {
   const mes = document.getElementById('meta-mes').value || getMeses()[0];
