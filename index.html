@@ -331,10 +331,8 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
     <div class="nav-sec">Visão Geral</div>
     <div class="nav-item active" onclick="showPage('dashboard')"><i class="ti ti-dashboard"></i> Dashboard</div>
     <div class="nav-item" onclick="showPage('saldos')"><i class="ti ti-building-bank"></i> Saldos Bancários</div>
-    <div class="nav-item" onclick="showPage('comparativo')"><i class="ti ti-layout-columns"></i> Comparativo</div>
     <div class="nav-sec">Financeiro</div>
     <div class="nav-item" onclick="showPage('importar')"><i class="ti ti-upload"></i> Importar OFX</div>
-    <div class="nav-item" onclick="showPage('emprestimos')"><i class="ti ti-arrows-exchange"></i> Empréstimos</div>
     <div class="nav-item" onclick="showPage('massa')"><i class="ti ti-tags"></i> Categorizar <span class="nav-badge red" id="pill-sem">0</span></div>
     <div class="nav-item" onclick="showPage('lancamentos')"><i class="ti ti-list"></i> Lançamentos</div>
     <div class="nav-item" onclick="showPage('dre')"><i class="ti ti-file-analytics"></i> DRE Gerencial</div>
@@ -347,7 +345,6 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
     <div class="nav-item" onclick="showPage('regras')"><i class="ti ti-wand"></i> Regras Auto</div>
     <div class="nav-item" onclick="showPage('orcamento')"><i class="ti ti-calculator"></i> Orçamento / PE</div>
     <div class="nav-item" onclick="showPage('relatorios')"><i class="ti ti-report"></i> Relatórios</div>
-    <div class="nav-item" onclick="showPage('uti')" style="color:var(--r1);font-weight:600"><i class="ti ti-urgent"></i> UTI Financeira</div>
     <div class="nav-sec">Sistema</div>
     <div class="nav-item" onclick="showPage('config')"><i class="ti ti-settings"></i> Configurações</div>
     <div class="nav-item" onclick="alternarTema()" id="btn-tema" style="margin-top:auto"><i class="ti ti-moon" id="tema-icon"></i> <span id="tema-label">Tema escuro</span></div>
@@ -429,19 +426,197 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
 
     <!-- ==================== METAS ==================== -->
     <!-- ==================== COMPARATIVO ==================== -->
-    <div id="page-comparativo" class="page">
-      <div class="topbar">
-        <div><div class="topbar-title">Comparativo de Unidades</div></div>
-        <div class="topbar-right"><select id="cmp-mes" onchange="renderComparativo()" style="width:160px"></select></div>
-      </div>
+    <!-- ==================== IMPORTAR OFX + LANÇAMENTO MANUAL ==================== -->
+    <div id="page-importar" class="page">
+      <div class="topbar"><div><div class="topbar-title">Importar / Lançar</div><div class="topbar-sub">Importe OFX ou registre movimentações manualmente</div></div></div>
       <div class="content">
-        <div style="overflow-x:auto"><table>
-          <thead><tr><th>Unidade</th><th style="text-align:right">Receita</th><th style="text-align:right">C. Variável</th><th style="text-align:right">C. Fixo</th><th style="text-align:right">Res. Operacional</th><th style="text-align:right">Margem Op.</th><th style="text-align:right">Ponto de Equilíbrio</th></tr></thead>
-          <tbody id="cmp-body"></tbody>
-        </table></div>
+        <div class="tabs">
+          <div class="tab active" onclick="switchImportTab('ofx',this)"><i class="ti ti-file-upload" style="font-size:14px"></i> Importar OFX</div>
+          <div class="tab" onclick="switchImportTab('excel',this)"><i class="ti ti-file-spreadsheet" style="font-size:14px"></i> Importar Excel (App Barber)</div>
+          <div class="tab" onclick="switchImportTab('mensal',this)"><i class="ti ti-table" style="font-size:14px"></i> Resumo Mensal</div>
+          <div class="tab" onclick="switchImportTab('gerencial',this)"><i class="ti ti-report-money" style="font-size:14px"></i> Relatório Gerencial</div>
+          <div class="tab" onclick="switchImportTab('manual',this)"><i class="ti ti-pencil" style="font-size:14px"></i> Lançamento Manual</div>
+        </div>
+
+        <!-- TAB OFX -->
+        <div id="import-tab-ofx">
+          <div class="card">
+            <div class="field-row three">
+              <div class="field-group" style="margin:0"><label>Unidade</label><select id="sel-unidade" onchange="popularContasPorUnidade('sel-unidade','sel-conta')"></select></div>
+              <div class="field-group" style="margin:0"><label>Conta Bancária</label><select id="sel-conta"><option value="">Selecione a unidade</option></select></div>
+              <div class="field-group" style="margin:0"><label>Banco</label><select id="sel-banco"><option value="auto">Detectar automaticamente</option><option value="bb">Banco do Brasil</option><option value="itau">Itaú</option><option value="bradesco">Bradesco</option><option value="sicoob">Sicoob</option><option value="inter">Banco Inter</option><option value="nubank">Nubank</option><option value="c6">C6 Bank</option></select></div>
+            </div>
+            <div class="drop-zone" id="dropzone" onclick="document.getElementById('fileInput').click()" ondragover="dzEv(event,1)" ondragleave="dzEv(event,0)" ondrop="handleDrop(event)">
+              <i class="ti ti-file-upload"></i>
+              <p style="font-size:13px;color:var(--text2)">Arraste o arquivo OFX aqui ou clique para selecionar</p>
+              <small style="font-size:11px;color:var(--text3)">Formatos: .ofx, .ofc — qualquer banco</small>
+            </div>
+            <input type="file" id="fileInput" accept=".ofx,.ofc,.OFX,.OFC" style="display:none" onchange="handleFile(this)">
+          </div>
+          <div id="import-preview" style="display:none">
+            <div class="alert info" id="import-info"></div>
+            <div class="card" style="padding:.75rem 1.25rem 1rem">
+              <div style="overflow-x:auto"><table>
+                <thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Valor</th><th>Categoria</th><th style="width:36px">✓</th></tr></thead>
+                <tbody id="preview-body"></tbody>
+              </table></div>
+              <div style="display:flex;gap:8px;margin-top:1rem">
+                <button class="btn primary" onclick="confirmarImportacao()"><i class="ti ti-check"></i> Salvar no Supabase</button>
+                <button class="btn" onclick="cancelarImportacao()"><i class="ti ti-x"></i> Cancelar</button>
+              </div>
+            </div>
+          </div>
+          <div id="import-ok"></div>
+        </div>
+
+        <!-- TAB EXCEL APP BARBER -->
+        <div id="import-tab-excel" style="display:none">
+          <div class="card">
+            <div class="card-title"><i class="ti ti-file-spreadsheet"></i> Importar Excel do App Barber</div>
+            <div class="alert info"><i class="ti ti-info-circle"></i> Importa apenas movimentações em <strong>dinheiro</strong>: Saldo do Caixa do dia (entradas) e Vales/Comissões (saídas). Pagamentos online e planos de assinatura são ignorados automaticamente.</div>
+            <div class="field-row">
+              <div class="field-group" style="margin:0"><label>Unidade</label><select id="sel-unidade-excel" onchange="popularContasPorUnidade('sel-unidade-excel','sel-conta-excel')"></select></div>
+              <div class="field-group" style="margin:0"><label>Conta (Caixa)</label><select id="sel-conta-excel"><option value="">Selecione a unidade</option></select></div>
+            </div>
+            <div class="drop-zone" id="dropzone-excel" style="margin-top:1rem" onclick="document.getElementById('fileInputExcel').click()" ondragover="dzEvExcel(event,1)" ondragleave="dzEvExcel(event,0)" ondrop="handleDropExcel(event)">
+              <i class="ti ti-file-spreadsheet"></i>
+              <p style="font-size:13px;color:var(--text2)">Arraste o arquivo Excel (.xlsx) do App Barber aqui</p>
+              <small style="font-size:11px;color:var(--text3)">Formato: Entrada e Saída exportado do App Barber</small>
+            </div>
+            <input type="file" id="fileInputExcel" accept=".xlsx,.xls" style="display:none" onchange="handleFileExcel(this)">
+          </div>
+          <div id="excel-preview" style="display:none">
+            <div class="alert info" id="excel-info"></div>
+            <div class="card" style="padding:.75rem 1.25rem 1rem">
+              <div style="overflow-x:auto"><table>
+                <thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Valor</th><th>Categoria</th><th style="width:36px">✓</th></tr></thead>
+                <tbody id="excel-preview-body"></tbody>
+              </table></div>
+              <div style="display:flex;gap:8px;margin-top:1rem">
+                <button class="btn primary" onclick="confirmarImportacaoExcel()"><i class="ti ti-check"></i> Salvar no Supabase</button>
+                <button class="btn" onclick="cancelarImportacaoExcel()"><i class="ti ti-x"></i> Cancelar</button>
+              </div>
+            </div>
+          </div>
+          <div id="excel-ok"></div>
+        </div>
+
+        <!-- TAB RESUMO MENSAL -->
+        <div id="import-tab-mensal" style="display:none">
+          <div class="card">
+            <div class="card-title"><i class="ti ti-table"></i> Importar Resumo Mensal (AppBarber)</div>
+            <div class="alert info"><i class="ti ti-info-circle"></i> Importa a planilha de entradas e saídas mensais do AppBarber. Cada mês gera <strong>um lançamento de entrada</strong> (caixa dinheiro) e <strong>um de saída</strong> no dia 1º do mês. Formato esperado: colunas <em>Mês/Ano, Total Entradas, Total Saídas</em>.</div>
+            <div class="field-row">
+              <div class="field-group" style="margin:0"><label>Unidade</label><select id="sel-unidade-mensal" onchange="popularContasPorUnidade('sel-unidade-mensal','sel-conta-mensal')"></select></div>
+              <div class="field-group" style="margin:0"><label>Conta (Caixa Dinheiro)</label><select id="sel-conta-mensal"><option value="">Selecione a unidade</option></select></div>
+            </div>
+            <div class="drop-zone" id="dropzone-mensal" style="margin-top:1rem" onclick="document.getElementById('fileInputMensal').click()" ondragover="dzEvMensal(event,1)" ondragleave="dzEvMensal(event,0)" ondrop="handleDropMensal(event)">
+              <i class="ti ti-table"></i>
+              <p style="font-size:13px;color:var(--text2)">Arraste a planilha de Resumo Mensal (.xlsx) aqui</p>
+              <small style="font-size:11px;color:var(--text3)">Colunas: Mês/Ano · Entradas (Dinheiro) · Total Entradas · Saídas Fixas · Total Saídas</small>
+            </div>
+            <input type="file" id="fileInputMensal" accept=".xlsx,.xls" style="display:none" onchange="handleFileMensal(this)">
+          </div>
+          <div id="mensal-preview" style="display:none">
+            <div class="alert info" id="mensal-info"></div>
+            <div class="card" style="padding:.75rem 1.25rem 1rem">
+              <div style="overflow-x:auto"><table>
+                <thead><tr><th>Mês/Ano</th><th>Data Lançamento</th><th>Entrada (R$)</th><th>Saída (R$)</th><th>Saldo (R$)</th><th style="width:36px">✓</th></tr></thead>
+                <tbody id="mensal-preview-body"></tbody>
+              </table></div>
+              <div style="display:flex;gap:8px;margin-top:1rem">
+                <button class="btn primary" onclick="confirmarImportacaoMensal()"><i class="ti ti-check"></i> Salvar no Supabase</button>
+                <button class="btn" onclick="cancelarImportacaoMensal()"><i class="ti ti-x"></i> Cancelar</button>
+              </div>
+            </div>
+          </div>
+          <div id="mensal-ok"></div>
+        </div>
+
+        <!-- TAB RELATÓRIO GERENCIAL -->
+        <div id="import-tab-gerencial" style="display:none">
+          <div class="card">
+            <div class="card-title"><i class="ti ti-report-money"></i> Importar Relatório Gerencial (AppBarber)</div>
+            <div class="alert info"><i class="ti ti-info-circle"></i> Importa o arquivo <strong>Relatório Gerencial Financeiro</strong> exportado do AppBarber. Cada linha vira um lançamento de <strong>saída</strong> com data, descrição e valor originais. Colunas esperadas: <em>Descrição · Data · Valor Bruto</em>.</div>
+            <div class="field-row">
+              <div class="field-group" style="margin:0"><label>Unidade *</label><select id="sel-unidade-gerencial" onchange="popularContasPorUnidade('sel-unidade-gerencial','sel-conta-gerencial')"></select></div>
+              <div class="field-group" style="margin:0"><label>Conta bancária</label><select id="sel-conta-gerencial"><option value="">Selecione a unidade</option></select></div>
+            </div>
+            <div class="drop-zone" id="dropzone-gerencial" style="margin-top:1rem"
+              onclick="document.getElementById('fileInputGerencial').click()"
+              ondragover="dzEvGer(event,1)" ondragleave="dzEvGer(event,0)" ondrop="handleDropGer(event)">
+              <i class="ti ti-report-money"></i>
+              <p style="font-size:13px;color:var(--text2)">Arraste o Relatório Gerencial Financeiro (.xlsx) aqui</p>
+              <small style="font-size:11px;color:var(--text3)">Colunas: Despesa · Descrição · Data · Tipo · Valor Bruto · Pagamento</small>
+            </div>
+            <input type="file" id="fileInputGerencial" accept=".xlsx,.xls" style="display:none" onchange="handleFileGer(this)">
+          </div>
+          <div id="gerencial-preview" style="display:none">
+            <div class="alert info" id="gerencial-info"></div>
+            <div class="card" style="padding:.75rem 1.25rem 1rem">
+              <div style="overflow-x:auto"><table>
+                <thead><tr>
+                  <th style="width:36px"><input type="checkbox" id="chk-all-ger" onchange="toggleAllGer(this)" style="width:auto"></th>
+                  <th>Data</th><th>Descrição</th><th>Tipo</th><th>Pagamento</th>
+                  <th style="text-align:right">Valor</th><th>Categoria</th>
+                </tr></thead>
+                <tbody id="gerencial-preview-body"></tbody>
+              </table></div>
+              <div style="display:flex;gap:8px;margin-top:1rem;align-items:center">
+                <button class="btn primary" onclick="confirmarImportacaoGerencial()"><i class="ti ti-check"></i> Salvar selecionados</button>
+                <button class="btn" onclick="cancelarImportacaoGerencial()"><i class="ti ti-x"></i> Cancelar</button>
+                <span id="gerencial-count" style="font-size:12px;color:var(--text2);margin-left:auto"></span>
+              </div>
+            </div>
+          </div>
+          <div id="gerencial-ok"></div>
+        </div>
+
+        <!-- TAB MANUAL -->
+        <div id="import-tab-manual" style="display:none">
+          <div class="card" style="max-width:600px">
+            <div class="card-title"><i class="ti ti-pencil"></i> Novo lançamento manual</div>
+            <div class="field-row">
+              <div class="field-group"><label>Unidade *</label><select id="man-unidade" onchange="popularContasPorUnidade('man-unidade','man-conta')"></select></div>
+              <div class="field-group"><label>Data *</label><input type="date" id="man-data"></div>
+            </div>
+            <div class="field-group"><label>Descrição *</label><input type="text" id="man-desc" placeholder="Ex: Venda em dinheiro, Pagamento fornecedor..."></div>
+            <div class="field-row three">
+              <div class="field-group"><label>Tipo *</label>
+                <select id="man-tipo">
+                  <option value="E">Entrada</option>
+                  <option value="S">Saída</option>
+                </select>
+              </div>
+              <div class="field-group"><label>Valor (R$) *</label><input type="number" id="man-valor" placeholder="0,00" min="0" step="0.01"></div>
+              <div class="field-group"><label>Conta Bancária *</label>
+                <select id="man-conta">
+                  <option value="">Selecione a unidade</option>
+                </select>
+              </div>
+            </div>
+            <div class="field-group"><label>Categoria</label><select id="man-cat"><option value="">Sem categoria</option></select></div>
+            <div id="man-alert" style="margin-bottom:.5rem"></div>
+            <div style="display:flex;gap:8px">
+              <button class="btn primary" onclick="salvarManual()"><i class="ti ti-check"></i> Salvar lançamento</button>
+              <button class="btn" onclick="limparManual()"><i class="ti ti-refresh"></i> Limpar</button>
+            </div>
+          </div>
+          <div id="man-historico">
+            <div class="card" style="padding:.75rem 1.25rem">
+              <div class="card-title"><i class="ti ti-history"></i> Últimos lançamentos manuais</div>
+              <div style="overflow-x:auto"><table>
+                <thead><tr><th>Data</th><th>Unidade</th><th>Descrição</th><th>Categoria</th><th>Conta</th><th>Tipo</th><th style="text-align:right">Valor</th></tr></thead>
+                <tbody id="man-body"><tr><td colspan="7"><div class="empty" style="padding:1.5rem"><i class="ti ti-inbox"></i>Nenhum lançamento manual ainda</div></td></tr></tbody>
+              </table></div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
 
+    <!-- ==================== EMPRÉSTIMOS ENTRE UNIDADES ==================== -->
     <!-- ==================== IMPORTAR OFX + LANÇAMENTO MANUAL ==================== -->
     <div id="page-importar" class="page">
       <div class="topbar"><div><div class="topbar-title">Importar / Lançar</div><div class="topbar-sub">Importe OFX ou registre movimentações manualmente</div></div></div>
@@ -1092,114 +1267,6 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
     </div>
 
     <!-- ==================== UTI FINANCEIRA ==================== -->
-    <div id="page-uti" class="page">
-      <div class="topbar">
-        <div>
-          <div class="topbar-title" style="color:var(--r1)"><i class="ti ti-urgent"></i> UTI Financeira</div>
-          <div class="topbar-sub">Gestão de passivo e dívidas — priorização automática</div>
-        </div>
-        <div class="topbar-right">
-          <button class="btn primary" onclick="abrirModalUTI(null)"><i class="ti ti-plus"></i> Nova dívida</button>
-        </div>
-      </div>
-      <div class="content">
-        <!-- KPIs -->
-        <div class="uti-kpi-grid" id="uti-kpis"></div>
-
-        <!-- Filtros -->
-        <div class="uti-filtros">
-          <select id="uti-fil-u" onchange="renderUTI()" style="width:160px"></select>
-          <select id="uti-fil-pri" onchange="renderUTI()" style="width:160px">
-            <option value="">Todas as prioridades</option>
-            <option value="1">🔴 Risco Operacional</option>
-            <option value="2">🟡 Risco Financeiro</option>
-            <option value="3">🟢 Risco Negociável</option>
-          </select>
-          <select id="uti-fil-status" onchange="renderUTI()" style="width:160px">
-            <option value="">Todos os status</option>
-            <option value="Mapeado">Mapeado</option>
-            <option value="Em Negociação">Em Negociação</option>
-            <option value="Congelado">Congelado</option>
-            <option value="Acordo Fechado">Acordo Fechado</option>
-            <option value="Quitado">Quitado</option>
-          </select>
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text2);cursor:pointer">
-            <input type="checkbox" id="uti-ocultar-quitado" onchange="renderUTI()" checked style="width:auto">
-            Ocultar quitadas
-          </label>
-        </div>
-
-        <!-- Tabela -->
-        <div style="overflow-x:auto">
-          <table class="uti-table">
-            <thead><tr>
-              <th>Prioridade</th>
-              <th>Unidade</th>
-              <th>Credor</th>
-              <th>Categoria</th>
-              <th style="text-align:right">Valor Original</th>
-              <th style="text-align:right">Valor Atual</th>
-              <th style="text-align:right">Juros</th>
-              <th>Status</th>
-              <th style="text-align:right">Encaixe</th>
-              <th>Ações</th>
-            </tr></thead>
-            <tbody id="uti-body"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- MODAL NOVA/EDITAR DÍVIDA -->
-    <div class="modal-overlay" id="modal-uti">
-      <div class="modal" style="width:560px">
-        <div class="modal-title" id="modal-uti-title">Nova Dívida</div>
-        <input type="hidden" id="uti-edit-id">
-        <div class="field-row">
-          <div class="field-group"><label>Unidade *</label><select id="uti-unidade"></select></div>
-          <div class="field-group"><label>Categoria *</label>
-            <select id="uti-categoria" onchange="utiAutoCategoria()">
-              <option value="">Selecionar...</option>
-              <option value="Aluguel">Aluguel</option>
-              <option value="Folha">Folha</option>
-              <option value="Energia/Água">Energia/Água</option>
-              <option value="Bancos/Empréstimos">Bancos/Empréstimos</option>
-              <option value="Fornecedores">Fornecedores</option>
-              <option value="Impostos">Impostos</option>
-            </select>
-          </div>
-        </div>
-        <div class="field-group"><label>Credor (fornecedor, banco, locador) *</label>
-          <input type="text" id="uti-credor" placeholder="Ex: Imobiliária Silva, Banco Itaú, Fornecedor XYZ">
-        </div>
-        <div class="field-row">
-          <div class="field-group"><label>Valor Original (R$) *</label><input type="number" id="uti-valor-orig" placeholder="0,00" step="0.01" min="0"></div>
-          <div class="field-group"><label>Valor Atual com Juros (R$)</label><input type="number" id="uti-valor-atual" placeholder="0,00" step="0.01" min="0"></div>
-        </div>
-        <div class="field-row">
-          <div class="field-group"><label>Status da Negociação *</label>
-            <select id="uti-status">
-              <option value="Mapeado">Mapeado</option>
-              <option value="Em Negociação">Em Negociação</option>
-              <option value="Congelado">Congelado</option>
-              <option value="Acordo Fechado">Acordo Fechado</option>
-              <option value="Quitado">Quitado</option>
-            </select>
-          </div>
-          <div class="field-group"><label>Encaixe Semanal/Mensal (R$)</label>
-            <input type="number" id="uti-encaixe" placeholder="0,00 — após fechar acordo" step="0.01" min="0">
-          </div>
-        </div>
-        <div class="field-group"><label>Observações</label>
-          <textarea id="uti-obs" rows="2" placeholder="Detalhes da negociação, prazo acordado, contato..." style="width:100%;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;resize:vertical;font-family:inherit;outline:none"></textarea>
-        </div>
-        <div class="modal-actions">
-          <button class="btn" onclick="fecharModal('modal-uti')">Cancelar</button>
-          <button class="btn primary" onclick="salvarUTI()"><i class="ti ti-check"></i> Salvar</button>
-        </div>
-      </div>
-    </div>
-
     <!-- ==================== CONFIGURAÇÕES ==================== -->
     <div id="page-config" class="page">
       <div class="topbar"><div><div class="topbar-title">Configurações</div></div></div>
@@ -2168,7 +2235,7 @@ function populateTodosSelects() {
     const allLabel = sid === 'sel-unidade' ? 'Selecionar unidade...' : 'Todas as unidades';
     populateU(sid, allLabel);
   });
-  ['fil-m','dre-m','fc-m','db-mes','cmp-mes','fca2-mes'].forEach(sid => populateMes(sid));
+  ['fil-m','dre-m','fc-m','db-mes','fca2-mes'].forEach(sid => populateMes(sid));
   ['massa-cat','regra-cat'].forEach(sid => populateCatSel(sid));
 }
 
@@ -2206,7 +2273,6 @@ function atualizarPillSem() {
 // ============================================================
 const PAGE_RENDERS = {
   dashboard:  () => { populateMes('db-mes'); populateU('db-u','Rede completa'); renderDashboard(); },
-  comparativo: () => { populateMes('cmp-mes'); renderComparativo(); },
   importar:   () => { populateU('sel-unidade','Selecionar unidade...'); document.getElementById('sel-conta').innerHTML='<option value="">Selecione a unidade</option>'; },
   massa:      renderMassa,
   lancamentos:() => {
@@ -2241,11 +2307,9 @@ const PAGE_RENDERS = {
   orcamento:  renderOrcamento,
   contas:     renderContas,
   saldos:     renderSaldos,
-  emprestimos:renderEmprestimos,
   calendario: renderCalendario,
   relatorios: initRelatorios,
   fluxocalendario: async () => { await initFCA2(); },
-  uti: initUTI,
 };
 function showPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
