@@ -152,7 +152,7 @@ tbody tr:last-child{border-bottom:none}
 .vel2-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem}
 .vel2-nome{font-size:13px;font-weight:700;color:var(--text)}
 .vel2-receita{font-size:13px;font-weight:700;color:var(--g1)}
-.vel2-track-wrap{position:relative;margin-bottom:.5rem}
+.vel2-track-wrap{position:relative;margin-bottom:1.8rem}
 .vel2-track{height:14px;background:var(--bg3);border-radius:7px;overflow:visible;position:relative}
 .vel2-fill{height:100%;border-radius:7px;transition:width 1s cubic-bezier(.4,0,.2,1);position:relative;min-width:4px}
 .vel2-fill.ok{background:linear-gradient(90deg,#1D9E75,#22C78E)}
@@ -2448,13 +2448,12 @@ function metaCard(u, mes) {
     <div class="vel2-track-wrap">
       <div class="vel2-track">
         <div class="vel2-fill ${fillClr}${pulsing}" style="width:${recPct.toFixed(1)}%"></div>
-        ${pe > 0 ? `<div class="vel2-marker pe" style="left:${pePct.toFixed(1)}%" title="PE: ${fBRL(pe)}"></div>` : ''}
-        ${metaVal > 0 ? `<div class="vel2-marker meta" style="left:${metaPct.toFixed(1)}%" title="Meta: ${fBRL(metaVal)}"></div>` : ''}
-      </div>
-      <!-- Labels dos marcadores -->
-      <div style="position:relative;height:22px;margin-top:2px">
-        ${pe > 0 ? `<div class="vel2-marker-label" style="left:${pePct.toFixed(1)}%;color:#A32D2D">PE</div>` : ''}
-        ${metaVal > 0 ? `<div class="vel2-marker-label" style="left:${metaPct.toFixed(1)}%;color:#1D9E75">Meta</div>` : ''}
+        ${pe > 0 ? `<div class="vel2-marker pe" style="left:${pePct.toFixed(1)}%" title="PE: ${fBRL(pe)}">
+          <span style="position:absolute;top:26px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;color:#A32D2D;white-space:nowrap;background:var(--bg);padding:0 2px;border-radius:2px">PE</span>
+        </div>` : ''}
+        ${metaVal > 0 ? `<div class="vel2-marker meta" style="left:${metaPct.toFixed(1)}%" title="Meta: ${fBRL(metaVal)}">
+          <span style="position:absolute;top:26px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;color:#1D9E75;white-space:nowrap;background:var(--bg);padding:0 2px;border-radius:2px">Meta</span>
+        </div>` : ''}
       </div>
     </div>
     <!-- Cards PE e Meta -->
