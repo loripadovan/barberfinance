@@ -2590,13 +2590,20 @@ function renderDRE() {
   `;
 
   const catR = (grupo) => {
-    const cats = CACHE.categorias.filter(c=>c.grupo===grupo);
-    if (!cats.length) return '';
-    return cats.map(c => {
-      const v = list.filter(l=>l.cat_id===c.id).reduce((s,l)=>s+parseFloat(l.valor||0),0);
-      if (!v) return '';
-      return `<div class="dre-row indent"><span>${c.nome}</span><span>${fBRL(v)} <span style="font-size:11px;color:var(--text3)">${pct(v)}</span></span></div>`;
-    }).join('');
+    // Busca categorias que têm lançamentos no período para este grupo
+    const catsComValor = new Map();
+    list.filter(l => l.grupo === grupo).forEach(l => {
+      const key = l.cat_id || l.cat_nome || '?';
+      const nome = l.cat_nome || (l.cat_id ? (CACHE.categorias.find(c=>c.id===l.cat_id)?.nome||'?') : '?');
+      if (!catsComValor.has(key)) catsComValor.set(key, { nome, valor: 0 });
+      catsComValor.get(key).valor += parseFloat(l.valor||0);
+    });
+    if (!catsComValor.size) return '';
+    return [...catsComValor.values()]
+      .filter(c => c.valor > 0)
+      .sort((a,b) => b.valor - a.valor)
+      .map(c => `<div class="dre-row indent"><span>${c.nome}</span><span>${fBRL(c.valor)} <span style="font-size:11px;color:var(--text3)">${pct(c.valor)}</span></span></div>`)
+      .join('');
   };
 
   const grupoBloco = (id, label, conteudo, totalHtml) => `
@@ -5324,21 +5331,26 @@ async function renderFluxoProjetado() {
 
   // Coletar categorias com movimento real ou orçamento
   const catsUsadas = new Map(); // id -> cat obj
-  reais.forEach(l => {
-    if (l.cat_id && !catsUsadas.has(l.cat_id)) {
-      catsUsadas.set(l.cat_id, { id: l.cat_id, nome: l.cat_nome||'?', grupo: l.grupo, tipo: l.tipo });
-    }
+
+  // 1. Todas as categorias cadastradas (plano de contas completo)
+  CACHE.categorias.forEach(c => {
+    catsUsadas.set(c.id, { id: c.id, nome: c.nome, grupo: c.grupo, tipo: c.tipo });
   });
-  // Garantir que categorias de CF do orçamento apareçam
+
+  // 2. Garantir que categorias de CF do orçamento apareçam (com nome exato)
   orcItens.forEach(item => {
     const cat = CACHE.categorias.find(c => c.nome === item.nome && c.grupo === 'custo_fixo');
     if (cat && !catsUsadas.has(cat.id)) {
       catsUsadas.set(cat.id, { id: cat.id, nome: cat.nome, grupo: 'custo_fixo', tipo: 'S' });
     }
   });
-  // Categorias de receita (mínimo uma linha)
-  CACHE.categorias.filter(c => c.grupo === 'receita').forEach(c => {
-    if (!catsUsadas.has(c.id)) catsUsadas.set(c.id, { ...c });
+
+  // 3. Categorias do histórico de lançamentos que não estão no cadastro (cat_nome sem cat_id)
+  CACHE.lancamentos.filter(l => l.unidade_id == uid && l.cat_nome && !l.cat_id).forEach(l => {
+    const key = `nome_${l.cat_nome}`;
+    if (!catsUsadas.has(key)) {
+      catsUsadas.set(key, { id: key, nome: l.cat_nome, grupo: l.grupo, tipo: l.tipo });
+    }
   });
 
   // Calcular totais por dia
