@@ -2170,6 +2170,28 @@ function getMeses() {
   const m = new Set(CACHE.lancamentos.map(l => l.data.substring(0,7)));
   return [...m].sort().reverse();
 }
+
+function getMesesComFuturos(mesesFuturos = 6) {
+  const existentes = new Set(CACHE.lancamentos.map(l => l.data.substring(0,7)));
+  // Adicionar meses futuros a partir do mês atual
+  const hoje = new Date();
+  for (let i = 0; i <= mesesFuturos; i++) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() + i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    existentes.add(key);
+  }
+  return [...existentes].sort().reverse();
+}
+
+function populateMesFuturo(sid) {
+  const s = document.getElementById(sid); if (!s) return;
+  const meses = getMesesComFuturos(6);
+  const hoje = new Date();
+  const mesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
+  s.innerHTML = meses.map(m =>
+    `<option value="${m}"${m===mesAtual?' selected':''}>${nomeMes(m)}</option>`
+  ).join('');
+}
 function nomeMes(m) {
   const [y,mo] = m.split('-');
   return new Date(y, mo-1).toLocaleString('pt-BR', {month:'long', year:'numeric'});
@@ -5253,7 +5275,7 @@ let FP_MES  = null;
 
 async function initFluxoProjetado() {
   populateU('fp-u', 'Selecionar unidade...');
-  populateMes('fp-mes');
+  populateMesFuturo('fp-mes');
   const selU = document.getElementById('fp-u');
   if (selU.options.length > 1) selU.selectedIndex = 1;
   await renderFluxoProjetado();
