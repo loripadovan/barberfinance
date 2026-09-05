@@ -1790,7 +1790,7 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
 .fp-table th,.fp-table td{border:1px solid var(--border);padding:0;white-space:nowrap}
 /* Coluna de categorias — fixa à esquerda */
 .fp-cat{min-width:160px;max-width:160px;padding:5px 8px;font-size:11px;position:sticky;left:0;z-index:3;background:var(--bg)}
-.fp-cat.grupo{background:var(--bg2);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--text2)}
+.fp-cat.grupo{background:var(--bg2);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--text2);cursor:pointer;user-select:none}.fp-cat.grupo:hover{background:var(--bg3)}.fp-grupo-icon{font-size:10px;margin-right:4px;transition:transform .2s;display:inline-block}
 .fp-cat.total-col{background:var(--bg2);font-weight:700}
 .fp-cat.saldo{background:var(--brand);color:#F5F0E8;font-weight:700}
 .fp-cat.saldo-acum{background:var(--bg3);font-weight:700}
@@ -5410,12 +5410,18 @@ async function renderFluxoProjetado() {
     const cats = [...catsUsadas.values()].filter(c => c.grupo === grupo.id);
     if (!cats.length) return;
 
-    // Linha de grupo
-    html += `<tr><td class="fp-cat grupo" colspan="${diasNoMes+2}">${grupo.label}</td></tr>`;
+    // Linha de grupo — clicável para expandir/recolher
+    const grupoKey = `fp-grp-${grupo.id}`;
+    html += `<tr class="fp-grupo-hdr" onclick="fpToggleGrupo('${grupo.id}',this)">
+      <td class="fp-cat grupo" colspan="${diasNoMes+2}">
+        <span class="fp-grupo-icon" id="fp-icon-${grupo.id}">▼</span>${grupo.label}
+        <span style="font-size:9px;font-weight:400;margin-left:6px;opacity:.6">${cats.length} ${cats.length===1?'categoria':'categorias'}</span>
+      </td>
+    </tr>`;
 
     cats.forEach(cat => {
       let totalCat = 0;
-      html += `<tr><td class="fp-cat" title="${cat.nome}">${cat.nome.length>22?cat.nome.slice(0,22)+'…':cat.nome}</td>`;
+      html += `<tr class="fp-grupo-rows fp-grupo-${grupo.id}"><td class="fp-cat" title="${cat.nome}">${cat.nome.length>22?cat.nome.slice(0,22)+'…':cat.nome}</td>`;
       for (let d=1; d<=diasNoMes; d++) {
         const dados = dadosCat[cat.id][d];
         const dataStr = `${mes}-${String(d).padStart(2,'0')}`;
@@ -5468,6 +5474,14 @@ async function renderFluxoProjetado() {
 
   html += '</tbody></table>';
   document.getElementById('fp-wrap').innerHTML = html;
+}
+
+function fpToggleGrupo(grupoId, hdrEl) {
+  const rows = document.querySelectorAll(`.fp-grupo-${grupoId}`);
+  const icon = document.getElementById(`fp-icon-${grupoId}`);
+  const aberto = rows.length && rows[0].style.display !== 'none';
+  rows.forEach(r => r.style.display = aberto ? 'none' : '');
+  if (icon) icon.style.transform = aberto ? 'rotate(-90deg)' : '';
 }
 
 function fpEditarCelula(el, dataStr, catId, tipo, valorAtual) {
