@@ -5333,8 +5333,10 @@ async function renderFluxoProjetado() {
   const catsUsadas = new Map(); // id -> cat obj
 
   // 1. Todas as categorias cadastradas (plano de contas completo)
+  // Infere tipo pelo grupo quando null
   CACHE.categorias.forEach(c => {
-    catsUsadas.set(c.id, { id: c.id, nome: c.nome, grupo: c.grupo, tipo: c.tipo });
+    const tipo = c.tipo || (c.grupo === 'receita' ? 'E' : 'S');
+    catsUsadas.set(c.id, { id: c.id, nome: c.nome, grupo: c.grupo, tipo });
   });
 
   // 2. Garantir que categorias de CF do orçamento apareçam (com nome exato)
