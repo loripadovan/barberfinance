@@ -337,6 +337,7 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
     <div class="nav-item" onclick="showPage('lancamentos')"><i class="ti ti-list"></i> Lançamentos</div>
     <div class="nav-item" onclick="showPage('dre')"><i class="ti ti-file-analytics"></i> DRE Gerencial</div>
     <div class="nav-item" onclick="showPage('fluxo')"><i class="ti ti-chart-bar"></i> Fluxo de Caixa</div>
+    <div class="nav-item" onclick="showPage('fluxoprojetado')"><i class="ti ti-table-column"></i> Fluxo Projetado</div>
     <div class="nav-sec">Cadastros</div>
     <div class="nav-item" onclick="showPage('unidades')"><i class="ti ti-building-store"></i> Unidades</div>
     <div class="nav-item" onclick="showPage('contas')"><i class="ti ti-building-bank"></i> Contas Bancárias</div>
@@ -1165,6 +1166,32 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
     </div>
 
     <!-- ==================== FLUXO CALENDÁRIO ==================== -->
+    <!-- ==================== FLUXO PROJETADO ==================== -->
+    <div id="page-fluxoprojetado" class="page">
+      <div class="topbar">
+        <div><div class="topbar-title">Fluxo Projetado</div><div class="topbar-sub">DRE horizontal por dia — projetado vs realizado</div></div>
+        <div class="topbar-right">
+          <select id="fp-u" onchange="renderFluxoProjetado()" style="width:180px"></select>
+          <select id="fp-mes" onchange="renderFluxoProjetado()" style="width:150px"></select>
+          <button class="btn sm" onclick="renderFluxoProjetado()" title="Atualizar"><i class="ti ti-refresh"></i></button>
+        </div>
+      </div>
+      <div class="content" style="padding:1rem">
+        <!-- KPIs do mês -->
+        <div class="stat-grid" id="fp-stats" style="margin-bottom:1rem"></div>
+        <!-- Legenda -->
+        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:.75rem;font-size:11px;align-items:center">
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#0F2820;border-radius:2px;display:inline-block;border:1px solid var(--g1)"></span><span style="color:var(--text2)">Real (importado)</span></span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:var(--bg);border-radius:2px;display:inline-block;border:1px solid var(--border)"></span><span style="color:var(--text2)">Projetado (editável)</span></span>
+          <span style="color:var(--text3);font-size:10px">Clique em qualquer célula branca para inserir projeção</span>
+        </div>
+        <!-- Tabela -->
+        <div class="fp-wrap" id="fp-wrap">
+          <div class="empty"><i class="ti ti-table-column"></i> Selecione uma unidade</div>
+        </div>
+      </div>
+    </div>
+
     <!-- ==================== CONFIGURAÇÕES ==================== -->
     <div id="page-config" class="page">
       <div class="topbar"><div><div class="topbar-title">Configurações</div></div></div>
@@ -1756,6 +1783,43 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
 .fca2-legenda-item{display:flex;align-items:center;gap:5px}
 </style>
 
+<style>
+/* ===== FLUXO PROJETADO ===== */
+.fp-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.fp-table{border-collapse:collapse;font-size:11px;min-width:100%}
+.fp-table th,.fp-table td{border:1px solid var(--border);padding:0;white-space:nowrap}
+/* Coluna de categorias — fixa à esquerda */
+.fp-cat{min-width:160px;max-width:160px;padding:5px 8px;font-size:11px;position:sticky;left:0;z-index:3;background:var(--bg)}
+.fp-cat.grupo{background:var(--bg2);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--text2)}
+.fp-cat.total-col{background:var(--bg2);font-weight:700}
+.fp-cat.saldo{background:var(--brand);color:#F5F0E8;font-weight:700}
+.fp-cat.saldo-acum{background:var(--bg3);font-weight:700}
+/* Coluna total — fixa à direita */
+.fp-total-col{min-width:90px;padding:5px 8px;text-align:right;font-weight:600;position:sticky;right:0;z-index:3;background:var(--bg2);border-left:2px solid var(--border2)}
+/* Células de dias */
+.fp-cell{min-width:72px;max-width:72px;height:32px;padding:0;text-align:right;position:relative;vertical-align:middle}
+.fp-cell-inner{width:100%;height:100%;display:flex;align-items:center;justify-content:flex-end;padding:0 5px;cursor:pointer;font-size:11px}
+.fp-cell-inner:hover{background:var(--bg2)}
+.fp-cell-inner.real{color:var(--g1);font-weight:600;cursor:default}
+.fp-cell-inner.real.saida{color:var(--r1)}
+.fp-cell-inner.prev{color:var(--text2)}
+.fp-cell-inner.vazio{color:var(--text3)}
+.fp-cell input{width:100%;height:100%;border:none;outline:2px solid var(--g1);background:var(--bg);color:var(--text);font-size:11px;text-align:right;padding:0 5px;box-sizing:border-box}
+/* Cabeçalho dias */
+.fp-day-hdr{min-width:72px;padding:4px 5px;text-align:center;background:var(--bg2);font-weight:600;font-size:10px;color:var(--text2);position:sticky;top:0;z-index:2}
+.fp-day-hdr.hoje{background:var(--g1);color:#fff}
+.fp-day-hdr.fim-semana{color:var(--text3)}
+/* Linhas de saldo */
+.fp-saldo-dia{background:#0F2820}
+.fp-saldo-dia td,.fp-saldo-dia .fp-cat,.fp-saldo-dia .fp-total-col{background:#0F2820;color:#22C78E;font-weight:700}
+.fp-saldo-dia td.neg,.fp-saldo-dia .fp-cat.neg,.fp-saldo-dia .fp-total-col.neg{background:#2A0A0A;color:#E05C5C}
+.fp-saldo-acum{background:var(--bg3)}
+.fp-saldo-acum td,.fp-saldo-acum .fp-cat,.fp-saldo-acum .fp-total-col{background:var(--bg3);font-weight:700}
+/* Thead sticky */
+.fp-table thead{position:sticky;top:0;z-index:4}
+.fp-thead-cat{position:sticky;left:0;z-index:5;background:var(--bg2);padding:4px 8px;font-size:10px;font-weight:700;color:var(--text2)}
+</style>
+
 <script>
 // ============================================================
 //  CONFIGURAÇÃO SUPABASE
@@ -2198,6 +2262,7 @@ const PAGE_RENDERS = {
   },
   dre:        () => { populateMes('dre-m'); populateU('dre-u','Rede completa'); toggleDreModo(); renderDRE(); },
   fluxo:      () => { populateMes('fc-m'); populateU('fc-u','Rede completa'); renderFluxo(); },
+  fluxoprojetado: async () => { await initFluxoProjetado(); },
   unidades:   renderUnidades,
   categorias: renderCategorias,
   regras:     renderRegras,
@@ -5173,6 +5238,263 @@ function excluirUTI(id) {
     utiSave();
     renderUTI();
   });
+}
+
+// ============================================================
+//  FLUXO PROJETADO — DRE horizontal por dia
+// ============================================================
+// Dados projetados salvos no Supabase (tabela fluxo_calendario)
+// Chave: unidade_id + data + cat_id/tipo
+// Reais: vêm do CACHE.lancamentos
+
+let FP_PROJ = {}; // cache local: { 'uid_YYYY-MM-DD_catId': valor }
+let FP_UID  = null;
+let FP_MES  = null;
+
+async function initFluxoProjetado() {
+  populateU('fp-u', 'Selecionar unidade...');
+  populateMes('fp-mes');
+  const selU = document.getElementById('fp-u');
+  if (selU.options.length > 1) selU.selectedIndex = 1;
+  await renderFluxoProjetado();
+}
+
+async function renderFluxoProjetado() {
+  const uid = parseInt(document.getElementById('fp-u').value);
+  const mes = document.getElementById('fp-mes').value || getMeses()[0];
+  if (!uid || !mes) return;
+
+  FP_UID = uid;
+  FP_MES = mes;
+
+  // Carregar projeções do Supabase para este uid+mês
+  if (db) {
+    const { data } = await db.from('fluxo_calendario')
+      .select('*')
+      .eq('unidade_id', uid)
+      .gte('data', mes + '-01')
+      .lte('data', mes + '-31');
+    FP_PROJ = {};
+    (data||[]).forEach(r => {
+      const key = `${r.data.slice(0,10)}_${r.cat_id||r.tipo}`;
+      FP_PROJ[key] = { valor: parseFloat(r.valor), id: r.id, desc: r.descricao };
+    });
+  }
+
+  const [ano, numM] = mes.split('-').map(Number);
+  const diasNoMes = new Date(ano, numM, 0).getDate();
+  const hoje = new Date();
+  const hojeStr = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}`;
+
+  // Lançamentos reais do mês
+  const reais = CACHE.lancamentos.filter(l => l.unidade_id == uid && l.data.startsWith(mes));
+
+  // Custos fixos do orçamento
+  const orcItens = getOrcamento(uid);
+
+  // Montar estrutura de categorias (grupos do DRE)
+  const grupos = [
+    { id: 'receita',        label: 'RECEITAS',         tipo: 'E' },
+    { id: 'custo_variavel', label: 'CUSTOS VARIÁVEIS', tipo: 'S' },
+    { id: 'custo_fixo',     label: 'CUSTOS FIXOS',     tipo: 'S' },
+    { id: 'nao_operacional',label: 'NÃO OPERACIONAL',  tipo: 'S' },
+  ];
+
+  // Coletar categorias com movimento real ou orçamento
+  const catsUsadas = new Map(); // id -> cat obj
+  reais.forEach(l => {
+    if (l.cat_id && !catsUsadas.has(l.cat_id)) {
+      catsUsadas.set(l.cat_id, { id: l.cat_id, nome: l.cat_nome||'?', grupo: l.grupo, tipo: l.tipo });
+    }
+  });
+  // Garantir que categorias de CF do orçamento apareçam
+  orcItens.forEach(item => {
+    const cat = CACHE.categorias.find(c => c.nome === item.nome && c.grupo === 'custo_fixo');
+    if (cat && !catsUsadas.has(cat.id)) {
+      catsUsadas.set(cat.id, { id: cat.id, nome: cat.nome, grupo: 'custo_fixo', tipo: 'S' });
+    }
+  });
+  // Categorias de receita (mínimo uma linha)
+  CACHE.categorias.filter(c => c.grupo === 'receita').forEach(c => {
+    if (!catsUsadas.has(c.id)) catsUsadas.set(c.id, { ...c });
+  });
+
+  // Calcular totais por dia
+  const saldoDia = Array(diasNoMes+1).fill(0);
+  const saldoAcum = Array(diasNoMes+1).fill(0);
+
+  // Montar dados por categoria por dia
+  const dadosCat = {}; // catId -> { d1: {real, proj}, d2: ... }
+  catsUsadas.forEach((cat, catId) => {
+    dadosCat[catId] = {};
+    for (let d=1; d<=diasNoMes; d++) {
+      const dataStr = `${mes}-${String(d).padStart(2,'0')}`;
+      // Real
+      const realVal = reais.filter(l => l.cat_id == catId && l.data === dataStr)
+        .reduce((s,l) => s + parseFloat(l.valor||0), 0);
+      // Projetado (do fluxo_calendario)
+      const projKey = `${dataStr}_${catId}`;
+      const projVal = FP_PROJ[projKey]?.valor || 0;
+      // CF do orçamento
+      const orcItem = orcItens.find(i => {
+        const c = CACHE.categorias.find(c => c.id == catId);
+        return c && i.nome === c.nome && i.dia === d;
+      });
+      const orcVal = orcItem ? parseFloat(orcItem.valor||0) : 0;
+
+      dadosCat[catId][d] = { real: realVal, proj: projVal, orc: orcVal };
+
+      // Contribuição para saldo
+      const efetivo = realVal || projVal || orcVal;
+      if (cat.tipo === 'E') saldoDia[d] += efetivo;
+      else saldoDia[d] -= efetivo;
+    }
+  });
+
+  // Saldo acumulado
+  let acum = 0;
+  for (let d=1; d<=diasNoMes; d++) {
+    acum += saldoDia[d];
+    saldoAcum[d] = acum;
+  }
+
+  // KPIs
+  const totalE = reais.filter(l=>l.tipo==='E').reduce((s,l)=>s+parseFloat(l.valor||0),0);
+  const totalS = reais.filter(l=>l.tipo==='S').reduce((s,l)=>s+parseFloat(l.valor||0),0);
+  const saldoFim = saldoAcum[diasNoMes];
+  document.getElementById('fp-stats').innerHTML = `
+    <div class="stat"><div class="stat-label">Receita Real</div><div class="stat-value g">${fBRL(totalE)}</div></div>
+    <div class="stat"><div class="stat-label">Saídas Reais</div><div class="stat-value r">${fBRL(totalS)}</div></div>
+    <div class="stat"><div class="stat-label">Resultado Real</div><div class="stat-value ${totalE-totalS>=0?'g':'r'}">${fBRL(totalE-totalS)}</div></div>
+    <div class="stat"><div class="stat-label">Saldo Projetado (fim do mês)</div><div class="stat-value ${saldoFim>=0?'g':'r'}">${fBRL(saldoFim)}</div></div>
+  `;
+
+  // ── MONTAR TABELA ──────────────────────────────────────────
+  const DIAS_SEMANA = ['D','S','T','Q','Q','S','S'];
+  let html = `<table class="fp-table"><thead><tr>
+    <th class="fp-thead-cat">Categoria</th>`;
+
+  for (let d=1; d<=diasNoMes; d++) {
+    const dataStr = `${mes}-${String(d).padStart(2,'0')}`;
+    const dow = new Date(ano, numM-1, d).getDay();
+    const isHoje = dataStr === hojeStr;
+    const fimSem = dow === 0 || dow === 6;
+    html += `<th class="fp-day-hdr${isHoje?' hoje':fimSem?' fim-semana':''}">${d}<br><span style="font-size:9px;font-weight:400">${DIAS_SEMANA[dow]}</span></th>`;
+  }
+  html += `<th class="fp-day-hdr" style="right:0;position:sticky;background:var(--bg2);border-left:2px solid var(--border2)">TOTAL</th></tr></thead><tbody>`;
+
+  // Linhas por grupo
+  grupos.forEach(grupo => {
+    const cats = [...catsUsadas.values()].filter(c => c.grupo === grupo.id);
+    if (!cats.length) return;
+
+    // Linha de grupo
+    html += `<tr><td class="fp-cat grupo" colspan="${diasNoMes+2}">${grupo.label}</td></tr>`;
+
+    cats.forEach(cat => {
+      let totalCat = 0;
+      html += `<tr><td class="fp-cat" title="${cat.nome}">${cat.nome.length>22?cat.nome.slice(0,22)+'…':cat.nome}</td>`;
+      for (let d=1; d<=diasNoMes; d++) {
+        const dados = dadosCat[cat.id][d];
+        const dataStr = `${mes}-${String(d).padStart(2,'0')}`;
+        let html_cell = '';
+
+        if (dados.real > 0) {
+          // Valor real — mostra e não é editável
+          totalCat += dados.real;
+          const cor = cat.tipo === 'E' ? 'real' : 'real saida';
+          html_cell = `<div class="fp-cell-inner ${cor}" title="Real: ${fBRL(dados.real)}">${fBRL(dados.real).replace('R$','').trim()}</div>`;
+        } else if (dados.orc > 0) {
+          // Custo fixo do orçamento — editável
+          totalCat += dados.orc;
+          html_cell = `<div class="fp-cell-inner prev" title="Orçamento: ${fBRL(dados.orc)}" onclick="fpEditarCelula(this,'${dataStr}',${cat.id},'${cat.tipo}',${dados.orc})">${fBRL(dados.orc).replace('R$','').trim()}</div>`;
+        } else if (dados.proj > 0) {
+          // Projeção manual
+          totalCat += dados.proj;
+          html_cell = `<div class="fp-cell-inner prev" title="Projetado: ${fBRL(dados.proj)}" onclick="fpEditarCelula(this,'${dataStr}',${cat.id},'${cat.tipo}',${dados.proj})">${fBRL(dados.proj).replace('R$','').trim()}</div>`;
+        } else {
+          // Vazio — editável
+          html_cell = `<div class="fp-cell-inner vazio" onclick="fpEditarCelula(this,'${dataStr}',${cat.id},'${cat.tipo}',0)">—</div>`;
+        }
+        html += `<td class="fp-cell">${html_cell}</td>`;
+      }
+      // Total da categoria
+      html += `<td class="fp-total-col" style="color:${cat.tipo==='E'?'var(--g1)':'var(--r1)'}">${totalCat>0?fBRL(totalCat).replace('R$','').trim():'—'}</td></tr>`;
+    });
+  });
+
+  // Linha saldo do dia
+  html += `<tr class="fp-saldo-dia"><td class="fp-cat saldo">SALDO DO DIA</td>`;
+  for (let d=1; d<=diasNoMes; d++) {
+    const v = saldoDia[d];
+    const neg = v < 0 ? ' neg' : '';
+    html += `<td class="fp-cell${neg}" style="background:${v<0?'#2A0A0A':'#0F2820'};font-weight:700;font-size:10px;text-align:right;padding:0 4px;color:${v<0?'#E05C5C':'#22C78E'}">${v!==0?fBRL(v).replace('R$','').trim():'—'}</td>`;
+  }
+  const totSaldo = Object.values(saldoDia).reduce((a,b)=>a+b,0);
+  html += `<td class="fp-total-col" style="color:${totSaldo>=0?'var(--g1)':'var(--r1)'}">${fBRL(totSaldo).replace('R$','').trim()}</td></tr>`;
+
+  // Linha saldo acumulado
+  html += `<tr class="fp-saldo-acum"><td class="fp-cat total-col">SALDO ACUMULADO</td>`;
+  for (let d=1; d<=diasNoMes; d++) {
+    const v = saldoAcum[d];
+    html += `<td style="font-weight:700;font-size:10px;text-align:right;padding:0 4px;color:${v<0?'var(--r1)':'var(--g1)'};">${fBRL(v).replace('R$','').trim()}</td>`;
+  }
+  html += `<td class="fp-total-col" style="color:${saldoAcum[diasNoMes]>=0?'var(--g1)':'var(--r1)'}">${fBRL(saldoAcum[diasNoMes]).replace('R$','').trim()}</td></tr>`;
+
+  html += '</tbody></table>';
+  document.getElementById('fp-wrap').innerHTML = html;
+}
+
+function fpEditarCelula(el, dataStr, catId, tipo, valorAtual) {
+  // Substitui o div por um input inline
+  const cel = el.parentElement;
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.value = valorAtual || '';
+  input.min = 0;
+  input.step = '0.01';
+  input.placeholder = '0,00';
+  cel.innerHTML = '';
+  cel.appendChild(input);
+  input.focus();
+  input.select();
+
+  const salvar = async () => {
+    const novoVal = parseFloat(input.value) || 0;
+    await fpSalvarProjecao(dataStr, catId, tipo, novoVal);
+    await renderFluxoProjetado();
+  };
+
+  input.addEventListener('blur', salvar);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { renderFluxoProjetado(); }
+  });
+}
+
+async function fpSalvarProjecao(dataStr, catId, tipo, valor) {
+  if (!db || !FP_UID) return;
+  const cat = CACHE.categorias.find(c => c.id == catId);
+  const projKey = `${dataStr}_${catId}`;
+  const existente = FP_PROJ[projKey];
+
+  if (valor <= 0) {
+    // Excluir se existia
+    if (existente?.id) await db.from('fluxo_calendario').delete().eq('id', existente.id);
+    delete FP_PROJ[projKey];
+    return;
+  }
+
+  if (existente?.id) {
+    await db.from('fluxo_calendario').update({ valor, descricao: cat?.nome||'Projeção' }).eq('id', existente.id);
+    FP_PROJ[projKey] = { ...existente, valor };
+  } else {
+    const { data } = await db.from('fluxo_calendario').insert({
+      unidade_id: FP_UID, data: dataStr, tipo, valor,
+      descricao: cat?.nome||'Projeção', cat_id: catId
+    }).select().single();
+    if (data) FP_PROJ[projKey] = { valor, id: data.id };
+  }
 }
 
 // ============================================================
