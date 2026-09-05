@@ -5463,6 +5463,9 @@ async function renderFluxoProjetado() {
   }
   html += `<td class="fp-total-col" style="color:${saldoAcum[diasNoMes]>=0?'var(--g1)':'var(--r1)'}">${fBRL(saldoAcum[diasNoMes]).replace('R$','').trim()}</td></tr>`;
 
+  // Linha de espaçamento final
+  html += `<tr><td class="fp-cat" style="height:16px;border:none"></td>${Array(diasNoMes+1).fill('<td style="border:none"></td>').join('')}</tr>`;
+
   html += '</tbody></table>';
   document.getElementById('fp-wrap').innerHTML = html;
 }
