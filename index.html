@@ -5400,10 +5400,10 @@ async function renderFluxoProjetado() {
       });
       const orcVal = orcItem ? parseFloat(orcItem.valor||0) : 0;
 
-      dadosCat[catId][d] = { real: realVal, proj: projVal, orc: orcVal };
+      dadosCat[catId][d] = { real: realVal, proj: projVal, orc: orcVal, suprimido: projVal === -0.01 };
 
-      // Contribuição para saldo — proj tem prioridade sobre orc
-      const efetivo = realVal || projVal || orcVal;
+      // Contribuição para saldo — proj tem prioridade sobre orc; suprimido não conta
+      const efetivo = dados.suprimido ? 0 : (realVal || (projVal > 0 ? projVal : 0) || orcVal);
       if (cat.tipo === 'E') saldoDia[d] += efetivo;
       else saldoDia[d] -= efetivo;
     }
@@ -5487,16 +5487,19 @@ async function renderFluxoProjetado() {
         let html_cell = '';
 
         if (dados.real > 0) {
-          // Valor real — mostra e não é editável
+          // Valor real — não editável
           totalCat += dados.real;
           const cor = cat.tipo === 'E' ? 'real' : 'real saida';
           html_cell = `<div class="fp-cell-inner ${cor}" title="Real: ${fBRL(dados.real)}">${fBRL(dados.real).replace('R$','').trim()}</div>`;
+        } else if (dados.suprimido) {
+          // Custo fixo suprimido manualmente — mostra — editável para restaurar
+          html_cell = `<div class="fp-cell-inner vazio" title="Suprimido (clique para restaurar)" onclick="fpEditarCelula(this,'${dataStr}',${cat.id},'${cat.tipo}',0)">—</div>`;
         } else if (dados.proj > 0) {
-          // Projeção manual salva — tem prioridade sobre orçamento
+          // Projeção manual salva
           totalCat += dados.proj;
-          html_cell = `<div class="fp-cell-inner prev" title="Projetado: ${fBRL(dados.proj)} (clique para editar)" onclick="fpEditarCelula(this,'${dataStr}',${cat.id},'${cat.tipo}',${dados.proj})">${fBRL(dados.proj).replace('R$','').trim()}</div>`;
+          html_cell = `<div class="fp-cell-inner prev" title="Projetado: ${fBRL(dados.proj)}" onclick="fpEditarCelula(this,'${dataStr}',${cat.id},'${cat.tipo}',${dados.proj})">${fBRL(dados.proj).replace('R$','').trim()}</div>`;
         } else if (dados.orc > 0) {
-          // Custo fixo do orçamento — editável, ao salvar vira projeção
+          // Custo fixo do orçamento — editável
           totalCat += dados.orc;
           html_cell = `<div class="fp-cell-inner prev" title="Orçamento: ${fBRL(dados.orc)} (clique para editar ou zerar)" onclick="fpEditarCelula(this,'${dataStr}',${cat.id},'${cat.tipo}',${dados.orc})">${fBRL(dados.orc).replace('R$','').trim()}</div>`;
         } else {
@@ -5578,13 +5581,33 @@ async function fpSalvarProjecao(dataStr, catId, tipo, valor) {
   const existente = FP_PROJ[projKey];
 
   if (valor <= 0) {
-    // Apaga projeção salva — célula voltará a mostrar orçamento (se houver)
+    // Verifica se há orçamento para esta célula — se sim, salva como suprimido (-0.01)
+    // Se não há orçamento, apaga normalmente
+    const catIdNum2 = (!isNaN(catId) && catId !== null) ? parseInt(catId) : null;
+    const orcItens2 = getOrcamento(parseInt(FP_UID));
+    const cat2 = catIdNum2 ? CACHE.categorias.find(c => c.id == catIdNum2) : null;
+    const temOrc = orcItens2.some(i => {
+      const d = parseInt(dataStr.split('-')[2]);
+      return cat2 && i.nome === cat2.nome && i.dia === d;
+    });
+
     if (existente?.id) {
-      const { error } = await db.from('fluxo_calendario').delete().eq('id', existente.id);
-      console.log('FP delete:', error || 'OK');
+      if (temOrc) {
+        // Tem orçamento — salva como suprimido para impedir que o orçamento reapareça
+        await db.from('fluxo_calendario').update({ valor: -0.01, descricao: payload.descricao }).eq('id', existente.id);
+        FP_PROJ[projKey] = { ...existente, valor: -0.01 };
+      } else {
+        await db.from('fluxo_calendario').delete().eq('id', existente.id);
+        delete FP_PROJ[projKey];
+      }
+    } else if (temOrc) {
+      // Não havia projeção mas tem orçamento — cria registro suprimido
+      const { data: d2, error } = await db.from('fluxo_calendario')
+        .insert({ ...payload, valor: -0.01 }).select('id').single();
+      if (!error && d2) FP_PROJ[projKey] = { valor: -0.01, id: d2.id };
+    } else {
+      delete FP_PROJ[projKey];
     }
-    delete FP_PROJ[projKey];
-    FP_CACHE_KEY = null; // força reload para mostrar valor do orçamento
     return;
   }
 
