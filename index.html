@@ -5299,13 +5299,15 @@ async function renderFluxoProjetado() {
   // Carregar projeções do Supabase para este uid+mês
   if (db) {
     const { data } = await db.from('fluxo_calendario')
-      .select('id, unidade_id, data, tipo, valor, descricao, cat_id')
+      .select('id, unidade_id, data, tipo, valor, descricao')
       .eq('unidade_id', uid)
       .gte('data', mes + '-01')
       .lte('data', mes + '-31');
     FP_PROJ = {};
     (data||[]).forEach(r => {
-      const key = `${r.data.slice(0,10)}_${r.cat_id||r.tipo}`;
+      // Busca a categoria pelo nome da descrição
+      const cat = CACHE.categorias.find(c => c.nome === r.descricao);
+      const key = cat ? `${r.data.slice(0,10)}_${cat.id}` : `${r.data.slice(0,10)}_${r.descricao}`;
       FP_PROJ[key] = { valor: parseFloat(r.valor), id: r.id, desc: r.descricao };
     });
   }
