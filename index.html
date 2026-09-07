@@ -5299,7 +5299,7 @@ async function renderFluxoProjetado() {
   // Carregar projeções do Supabase para este uid+mês
   if (db) {
     const { data } = await db.from('fluxo_calendario')
-      .select('id, unidade_id, data, tipo, valor, descricao')
+      .select('id, unidade_id, data, tipo, valor, descricao, cat_id')
       .eq('unidade_id', uid)
       .gte('data', mes + '-01')
       .lte('data', mes + '-31');
@@ -5558,8 +5558,8 @@ async function fpSalvarProjecao(dataStr, catId, tipo, valor) {
     valor,
     descricao: cat?.nome || String(catId).replace('nome_','') || 'Projeção',
   };
-  // cat_id só incluído se for número válido — requer SQL 13 executado no Supabase
-  // if (catIdNum) payload.cat_id = catIdNum;
+  // cat_id vincula a projeção à categoria
+  if (catIdNum) payload.cat_id = catIdNum;
 
   if (existente?.id) {
     const { error } = await db.from('fluxo_calendario')
