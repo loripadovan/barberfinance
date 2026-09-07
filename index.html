@@ -5402,7 +5402,7 @@ async function renderFluxoProjetado() {
 
       dadosCat[catId][d] = { real: realVal, proj: projVal, orc: orcVal };
 
-      // Contribuição para saldo
+      // Contribuição para saldo — proj tem prioridade sobre orc
       const efetivo = realVal || projVal || orcVal;
       if (cat.tipo === 'E') saldoDia[d] += efetivo;
       else saldoDia[d] -= efetivo;
@@ -5491,14 +5491,14 @@ async function renderFluxoProjetado() {
           totalCat += dados.real;
           const cor = cat.tipo === 'E' ? 'real' : 'real saida';
           html_cell = `<div class="fp-cell-inner ${cor}" title="Real: ${fBRL(dados.real)}">${fBRL(dados.real).replace('R$','').trim()}</div>`;
-        } else if (dados.orc > 0) {
-          // Custo fixo do orçamento — editável
-          totalCat += dados.orc;
-          html_cell = `<div class="fp-cell-inner prev" title="Orçamento: ${fBRL(dados.orc)}" onclick="fpEditarCelula(this,'${dataStr}',${cat.id},'${cat.tipo}',${dados.orc})">${fBRL(dados.orc).replace('R$','').trim()}</div>`;
         } else if (dados.proj > 0) {
-          // Projeção manual
+          // Projeção manual salva — tem prioridade sobre orçamento
           totalCat += dados.proj;
-          html_cell = `<div class="fp-cell-inner prev" title="Projetado: ${fBRL(dados.proj)}" onclick="fpEditarCelula(this,'${dataStr}',${cat.id},'${cat.tipo}',${dados.proj})">${fBRL(dados.proj).replace('R$','').trim()}</div>`;
+          html_cell = `<div class="fp-cell-inner prev" title="Projetado: ${fBRL(dados.proj)} (clique para editar)" onclick="fpEditarCelula(this,'${dataStr}',${cat.id},'${cat.tipo}',${dados.proj})">${fBRL(dados.proj).replace('R$','').trim()}</div>`;
+        } else if (dados.orc > 0) {
+          // Custo fixo do orçamento — editável, ao salvar vira projeção
+          totalCat += dados.orc;
+          html_cell = `<div class="fp-cell-inner prev" title="Orçamento: ${fBRL(dados.orc)} (clique para editar ou zerar)" onclick="fpEditarCelula(this,'${dataStr}',${cat.id},'${cat.tipo}',${dados.orc})">${fBRL(dados.orc).replace('R$','').trim()}</div>`;
         } else {
           // Vazio — editável
           html_cell = `<div class="fp-cell-inner vazio" onclick="fpEditarCelula(this,'${dataStr}',${cat.id},'${cat.tipo}',0)">—</div>`;
@@ -5578,11 +5578,13 @@ async function fpSalvarProjecao(dataStr, catId, tipo, valor) {
   const existente = FP_PROJ[projKey];
 
   if (valor <= 0) {
+    // Apaga projeção salva — célula voltará a mostrar orçamento (se houver)
     if (existente?.id) {
       const { error } = await db.from('fluxo_calendario').delete().eq('id', existente.id);
       console.log('FP delete:', error || 'OK');
     }
     delete FP_PROJ[projKey];
+    FP_CACHE_KEY = null; // força reload para mostrar valor do orçamento
     return;
   }
 
