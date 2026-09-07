@@ -1173,7 +1173,7 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
         <div class="topbar-right">
           <select id="fp-u" onchange="renderFluxoProjetado()" style="width:180px"></select>
           <select id="fp-mes" onchange="renderFluxoProjetado()" style="width:150px"></select>
-          <button class="btn sm" onclick="renderFluxoProjetado()" title="Atualizar"><i class="ti ti-refresh"></i></button>
+          <button class="btn sm" onclick="fpRefresh()" title="Atualizar"><i class="ti ti-refresh"></i></button>
         </div>
       </div>
       <div class="content" style="padding:1rem">
@@ -4704,6 +4704,11 @@ async function fca2Refresh() {
   await renderFCA2();
 }
 
+function fpRefresh() {
+  FP_CACHE_KEY = null; // força reload do Supabase
+  renderFluxoProjetado();
+}
+
 async function initFCA2() {
   populateU('fca2-u', 'Selecionar unidade...');
   populateMes('fca2-mes');
@@ -5276,9 +5281,10 @@ function excluirUTI(id) {
 // Chave: unidade_id + data + cat_id/tipo
 // Reais: vêm do CACHE.lancamentos
 
-let FP_PROJ = {}; // cache local: { 'uid_YYYY-MM-DD_catId': valor }
+let FP_PROJ = {}; // cache local: { 'YYYY-MM-DD_catId': {valor, id} }
 let FP_UID  = null;
 let FP_MES  = null;
+let FP_CACHE_KEY = null; // controla quando recarregar do Supabase
 
 async function initFluxoProjetado() {
   populateU('fp-u', 'Selecionar unidade...');
@@ -5296,18 +5302,20 @@ async function renderFluxoProjetado() {
   FP_UID = uid;
   FP_MES = mes;
 
-  // Carregar projeções do Supabase para este uid+mês
-  if (db) {
+  // Recarrega do Supabase só quando muda unidade ou mês
+  const cacheKey = `${uid}_${mes}`;
+  if (db && FP_CACHE_KEY !== cacheKey) {
+    FP_CACHE_KEY = cacheKey;
+    FP_PROJ = {};
     const { data } = await db.from('fluxo_calendario')
-      .select('id, unidade_id, data, tipo, valor, descricao')
+      .select('id, unidade_id, data, tipo, valor, descricao, cat_id')
       .eq('unidade_id', uid)
       .gte('data', mes + '-01')
       .lte('data', mes + '-31');
-    FP_PROJ = {};
     (data||[]).forEach(r => {
-      // Busca a categoria pelo nome da descrição
-      const cat = CACHE.categorias.find(c => c.nome === r.descricao);
-      const key = cat ? `${r.data.slice(0,10)}_${cat.id}` : `${r.data.slice(0,10)}_${r.descricao}`;
+      const key = r.cat_id
+        ? `${r.data.slice(0,10)}_${r.cat_id}`
+        : `${r.data.slice(0,10)}_${r.descricao}`;
       FP_PROJ[key] = { valor: parseFloat(r.valor), id: r.id, desc: r.descricao };
     });
   }
@@ -5524,7 +5532,9 @@ function fpEditarCelula(el, dataStr, catId, tipo, valorAtual) {
     committed = true;
     input.removeEventListener('blur', onBlur);
     const novoVal = parseFloat(input.value) || 0;
+    // Salva no Supabase mas não recarrega — evita 400 no GET
     await fpSalvarProjecao(dataStr, catId, tipo, novoVal);
+    // Renderiza usando cache local (FP_PROJ já foi atualizado no save)
     await renderFluxoProjetado();
   };
 
