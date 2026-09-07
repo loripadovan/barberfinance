@@ -5295,14 +5295,20 @@ let FP_MES  = null;
 let FP_CACHE_KEY = null; // controla quando recarregar do Supabase
 
 async function initFluxoProjetado() {
-  populateU('fp-u', 'Selecionar unidade...');
-  populateMesFuturo('fp-mes');
-  const selU = document.getElementById('fp-u');
-  if (selU.options.length > 1) selU.selectedIndex = 1;
-  await renderFluxoProjetado();
+  try {
+    populateU('fp-u', 'Selecionar unidade...');
+    populateMesFuturo('fp-mes');
+    const selU = document.getElementById('fp-u');
+    if (selU.options.length > 1) selU.selectedIndex = 1;
+    await renderFluxoProjetado();
+  } catch(e) {
+    console.error('FP init erro:', e);
+    document.getElementById('fp-wrap').innerHTML = `<div class="alert danger"><i class="ti ti-alert-triangle"></i> Erro: ${e.message}</div>`;
+  }
 }
 
 async function renderFluxoProjetado() {
+  try {
   const uid = parseInt(document.getElementById('fp-u').value);
   const mes = document.getElementById('fp-mes').value || getMeses()[0];
   if (!uid || !mes) return;
@@ -5518,6 +5524,10 @@ async function renderFluxoProjetado() {
 
   html += '</tbody></table>';
   document.getElementById('fp-wrap').innerHTML = html;
+  } catch(e) {
+    console.error('FP render erro:', e);
+    document.getElementById('fp-wrap').innerHTML = `<div class="alert danger"><i class="ti ti-alert-triangle"></i> Erro ao renderizar: ${e.message}<br><small>${e.stack?.split('\n')[1]||''}</small></div>`;
+  }
 }
 
 function fpToggleGrupo(grupoId, hdrEl) {
