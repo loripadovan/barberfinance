@@ -1186,7 +1186,7 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
           <span style="color:var(--text3);font-size:10px">Clique em qualquer célula branca para inserir projeção</span>
         </div>
         <!-- Tabela -->
-        <div class="fp-wrap" id="fp-wrap">
+        <div class="fp-wrap" id="fp-wrap" style="overflow:auto;max-height:calc(100vh - 280px)">
           <div class="empty"><i class="ti ti-table-column"></i> Selecione uma unidade</div>
         </div>
       </div>
@@ -1816,7 +1816,7 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
 .fp-saldo-acum{background:var(--bg3)}
 .fp-saldo-acum td,.fp-saldo-acum .fp-cat,.fp-saldo-acum .fp-total-col{background:var(--bg3);font-weight:700}
 /* Thead sticky — 3 linhas: dias, saldo do dia, saldo acumulado */
-.fp-table thead{position:sticky;top:0;z-index:4}
+.fp-table thead{position:sticky;top:0;z-index:4;box-shadow:0 2px 4px rgba(0,0,0,.15)}
 .fp-thead-cat{position:sticky;left:0;z-index:5;background:var(--bg2);padding:4px 8px;font-size:10px;font-weight:700;color:var(--text2)}
 /* Linhas de saldo no thead */
 .fp-thead-saldo-dia{background:#0F2820;color:#22C78E;font-weight:700;font-size:10px;text-align:right;padding:3px 4px;white-space:nowrap}
