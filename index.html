@@ -5503,11 +5503,10 @@ function fpToggleGrupo(grupoId, hdrEl) {
 }
 
 function fpEditarCelula(el, dataStr, catId, tipo, valorAtual) {
-  // Substitui o div por um input inline
   const cel = el.parentElement;
   const input = document.createElement('input');
   input.type = 'number';
-  input.value = valorAtual || '';
+  input.value = valorAtual > 0 ? valorAtual : '';
   input.min = 0;
   input.step = '0.01';
   input.placeholder = '0,00';
@@ -5516,21 +5515,29 @@ function fpEditarCelula(el, dataStr, catId, tipo, valorAtual) {
   input.focus();
   input.select();
 
+  let salvando = false;
+
   const salvar = async () => {
+    if (salvando) return;
+    salvando = true;
     const novoVal = parseFloat(input.value) || 0;
     await fpSalvarProjecao(dataStr, catId, tipo, novoVal);
     await renderFluxoProjetado();
   };
 
-  input.addEventListener('blur', salvar);
   input.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); salvar(); }
     if (e.key === 'Escape') { renderFluxoProjetado(); }
+  });
+
+  input.addEventListener('blur', () => {
+    if (!salvando) salvar();
   });
 }
 
 async function fpSalvarProjecao(dataStr, catId, tipo, valor) {
-  if (!db || !FP_UID) return;
+  if (!db || !FP_UID) { console.warn('FP: db ou FP_UID ausente'); return; }
+  console.log('FP salvar:', { dataStr, catId, tipo, valor, FP_UID });
 
   // catId pode ser número (id real) ou string 'nome_X' (fallback)
   const catIdNum = (typeof catId === 'number' || !isNaN(catId)) ? parseInt(catId) : null;
