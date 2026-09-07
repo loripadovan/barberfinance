@@ -1176,7 +1176,7 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
           <button class="btn sm" onclick="fpRefresh()" title="Atualizar"><i class="ti ti-refresh"></i></button>
         </div>
       </div>
-      <div class="content" style="padding:1rem">
+      <div class="content" style="padding:1rem;display:flex;flex-direction:column;height:calc(100vh - 57px);overflow:hidden">
         <!-- KPIs do mês -->
         <div class="stat-grid" id="fp-stats" style="margin-bottom:1rem"></div>
         <!-- Legenda -->
@@ -1186,7 +1186,7 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
           <span style="color:var(--text3);font-size:10px">Clique em qualquer célula branca para inserir projeção</span>
         </div>
         <!-- Tabela -->
-        <div class="fp-wrap" id="fp-wrap">
+        <div class="fp-wrap" id="fp-wrap" style="overflow:auto;flex:1;min-height:0">
           <div class="empty"><i class="ti ti-table-column"></i> Selecione uma unidade</div>
         </div>
       </div>
@@ -1815,9 +1815,17 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
 .fp-saldo-dia td.neg,.fp-saldo-dia .fp-cat.neg,.fp-saldo-dia .fp-total-col.neg{background:#2A0A0A;color:#E05C5C}
 .fp-saldo-acum{background:var(--bg3)}
 .fp-saldo-acum td,.fp-saldo-acum .fp-cat,.fp-saldo-acum .fp-total-col{background:var(--bg3);font-weight:700}
-/* Thead sticky */
+/* Thead sticky — 3 linhas: dias, saldo do dia, saldo acumulado */
 .fp-table thead{position:sticky;top:0;z-index:4}
 .fp-thead-cat{position:sticky;left:0;z-index:5;background:var(--bg2);padding:4px 8px;font-size:10px;font-weight:700;color:var(--text2)}
+/* Linhas de saldo no thead */
+.fp-thead-saldo-dia{background:#0F2820;color:#22C78E;font-weight:700;font-size:10px;text-align:right;padding:3px 4px;white-space:nowrap}
+.fp-thead-saldo-dia.neg{background:#2A0A0A;color:#E05C5C}
+.fp-thead-saldo-dia.cat{position:sticky;left:0;z-index:5;text-align:left;padding:3px 8px;font-size:10px}
+.fp-thead-saldo-acum{background:var(--bg3);font-weight:700;font-size:10px;text-align:right;padding:3px 4px;white-space:nowrap;color:var(--text)}
+.fp-thead-saldo-acum.cat{position:sticky;left:0;z-index:5;text-align:left;padding:3px 8px;font-size:10px}
+.fp-thead-saldo-acum.pos{color:var(--g1)}
+.fp-thead-saldo-acum.neg{color:var(--r1)}
 </style>
 
 <script>
@@ -5421,7 +5429,8 @@ async function renderFluxoProjetado() {
 
   // ── MONTAR TABELA ──────────────────────────────────────────
   const DIAS_SEMANA = ['D','S','T','Q','Q','S','S'];
-  let html = `<table class="fp-table"><thead><tr>
+  let html = `<table class="fp-table"><thead>
+  <tr>
     <th class="fp-thead-cat">Categoria</th>`;
 
   for (let d=1; d<=diasNoMes; d++) {
@@ -5431,7 +5440,29 @@ async function renderFluxoProjetado() {
     const fimSem = dow === 0 || dow === 6;
     html += `<th class="fp-day-hdr${isHoje?' hoje':fimSem?' fim-semana':''}">${d}<br><span style="font-size:9px;font-weight:400">${DIAS_SEMANA[dow]}</span></th>`;
   }
-  html += `<th class="fp-day-hdr" style="right:0;position:sticky;background:var(--bg2);border-left:2px solid var(--border2)">TOTAL</th></tr></thead><tbody>`;
+  html += `<th class="fp-day-hdr" style="right:0;position:sticky;background:var(--bg2);border-left:2px solid var(--border2)">TOTAL</th></tr>
+
+  <!-- SALDO DO DIA no cabeçalho -->
+  <tr>
+    <td class="fp-thead-saldo-dia cat">SALDO DO DIA</td>`;
+
+  for (let d=1; d<=diasNoMes; d++) {
+    const v = saldoDia[d];
+    html += `<td class="fp-thead-saldo-dia${v<0?' neg':''}">${v!==0?fBRL(v).replace('R$','').trim():'—'}</td>`;
+  }
+  const totSaldo = Object.values(saldoDia).reduce((a,b)=>a+b,0);
+  html += `<td class="fp-thead-saldo-dia${totSaldo<0?' neg':''}" style="position:sticky;right:0;border-left:2px solid var(--border2)">${fBRL(totSaldo).replace('R$','').trim()}</td></tr>
+
+  <!-- SALDO ACUMULADO no cabeçalho -->
+  <tr>
+    <td class="fp-thead-saldo-acum cat">SALDO ACUMULADO</td>`;
+
+  for (let d=1; d<=diasNoMes; d++) {
+    const v = saldoAcum[d];
+    html += `<td class="fp-thead-saldo-acum ${v<0?'neg':'pos'}">${fBRL(v).replace('R$','').trim()}</td>`;
+  }
+  html += `<td class="fp-thead-saldo-acum ${saldoAcum[diasNoMes]<0?'neg':'pos'}" style="position:sticky;right:0;border-left:2px solid var(--border2)">${fBRL(saldoAcum[diasNoMes]).replace('R$','').trim()}</td></tr>
+  </thead><tbody>`;
 
   // Linhas por grupo
   grupos.forEach(grupo => {
@@ -5478,24 +5509,6 @@ async function renderFluxoProjetado() {
       html += `<td class="fp-total-col" style="color:${cat.tipo==='E'?'var(--g1)':'var(--r1)'}">${totalCat>0?fBRL(totalCat).replace('R$','').trim():'—'}</td></tr>`;
     });
   });
-
-  // Linha saldo do dia
-  html += `<tr class="fp-saldo-dia"><td class="fp-cat saldo">SALDO DO DIA</td>`;
-  for (let d=1; d<=diasNoMes; d++) {
-    const v = saldoDia[d];
-    const neg = v < 0 ? ' neg' : '';
-    html += `<td class="fp-cell${neg}" style="background:${v<0?'#2A0A0A':'#0F2820'};font-weight:700;font-size:10px;text-align:right;padding:0 4px;color:${v<0?'#E05C5C':'#22C78E'}">${v!==0?fBRL(v).replace('R$','').trim():'—'}</td>`;
-  }
-  const totSaldo = Object.values(saldoDia).reduce((a,b)=>a+b,0);
-  html += `<td class="fp-total-col" style="color:${totSaldo>=0?'var(--g1)':'var(--r1)'}">${fBRL(totSaldo).replace('R$','').trim()}</td></tr>`;
-
-  // Linha saldo acumulado
-  html += `<tr class="fp-saldo-acum"><td class="fp-cat total-col">SALDO ACUMULADO</td>`;
-  for (let d=1; d<=diasNoMes; d++) {
-    const v = saldoAcum[d];
-    html += `<td style="font-weight:700;font-size:10px;text-align:right;padding:0 4px;color:${v<0?'var(--r1)':'var(--g1)'};">${fBRL(v).replace('R$','').trim()}</td>`;
-  }
-  html += `<td class="fp-total-col" style="color:${saldoAcum[diasNoMes]>=0?'var(--g1)':'var(--r1)'}">${fBRL(saldoAcum[diasNoMes]).replace('R$','').trim()}</td></tr>`;
 
   // Linha de espaçamento final
   html += `<tr><td class="fp-cat" style="height:16px;border:none"></td>${Array(diasNoMes+1).fill('<td style="border:none"></td>').join('')}</tr>`;
