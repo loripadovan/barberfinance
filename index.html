@@ -1785,9 +1785,11 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
 
 <style>
 /* ===== FLUXO PROJETADO ===== */
-.fp-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
-.fp-table{border-collapse:collapse;font-size:11px;min-width:100%}
-.fp-table th,.fp-table td{border:1px solid var(--border);padding:0;white-space:nowrap}
+.fp-wrap{overflow:auto;-webkit-overflow-scrolling:touch}
+.fp-table{border-collapse:separate;border-spacing:0;font-size:11px;min-width:100%}
+.fp-table th,.fp-table td{border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:0;white-space:nowrap}
+.fp-table th:first-child,.fp-table td:first-child{border-left:1px solid var(--border)}
+.fp-table thead tr:first-child th{border-top:1px solid var(--border)}
 /* Coluna de categorias — fixa à esquerda */
 .fp-cat{min-width:160px;max-width:160px;padding:5px 8px;font-size:11px;position:sticky;left:0;z-index:3;background:var(--bg)}
 .fp-cat.grupo{background:var(--bg2);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--text2);cursor:pointer;user-select:none}.fp-cat.grupo:hover{background:var(--bg3)}.fp-grupo-icon{font-size:10px;margin-right:4px;transition:transform .2s;display:inline-block}
@@ -1815,8 +1817,11 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
 .fp-saldo-dia td.neg,.fp-saldo-dia .fp-cat.neg,.fp-saldo-dia .fp-total-col.neg{background:#2A0A0A;color:#E05C5C}
 .fp-saldo-acum{background:var(--bg3)}
 .fp-saldo-acum td,.fp-saldo-acum .fp-cat,.fp-saldo-acum .fp-total-col{background:var(--bg3);font-weight:700}
-/* Thead sticky — 3 linhas: dias, saldo do dia, saldo acumulado */
-.fp-table thead{position:sticky;top:0;z-index:4;box-shadow:0 2px 4px rgba(0,0,0,.15)}
+/* Thead sticky — border-separate permite sticky funcionar */
+.fp-table thead{position:relative;z-index:4}
+.fp-table thead tr:nth-child(1) th{position:sticky;top:0;z-index:4;background:var(--bg2)}
+.fp-table thead tr:nth-child(2) td{position:sticky;top:28px;z-index:3}
+.fp-table thead tr:nth-child(3) td{position:sticky;top:52px;z-index:3}
 .fp-thead-cat{position:sticky;left:0;z-index:5;background:var(--bg2);padding:4px 8px;font-size:10px;font-weight:700;color:var(--text2)}
 /* Linhas de saldo no thead */
 .fp-thead-saldo-dia{background:#0F2820;color:#22C78E;font-weight:700;font-size:10px;text-align:right;padding:3px 4px;white-space:nowrap}
