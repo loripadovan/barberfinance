@@ -5536,42 +5536,45 @@ function fpEditarCelula(el, dataStr, catId, tipo, valorAtual) {
 }
 
 async function fpSalvarProjecao(dataStr, catId, tipo, valor) {
-  if (!db || !FP_UID) { console.warn('FP: db ou FP_UID ausente'); return; }
-  console.log('FP salvar:', { dataStr, catId, tipo, valor, FP_UID });
+  if (!db || !FP_UID) { console.warn('FP: db ou FP_UID ausente', {db:!!db, FP_UID}); return; }
+  console.log('FP salvar início:', { dataStr, catId, tipo, valor, FP_UID });
 
-  // catId pode ser número (id real) ou string 'nome_X' (fallback)
-  const catIdNum = (typeof catId === 'number' || !isNaN(catId)) ? parseInt(catId) : null;
+  const catIdNum = (!isNaN(catId) && catId !== null) ? parseInt(catId) : null;
   const cat = catIdNum ? CACHE.categorias.find(c => c.id == catIdNum) : null;
   const projKey = `${dataStr}_${catId}`;
   const existente = FP_PROJ[projKey];
 
   if (valor <= 0) {
-    if (existente?.id) await db.from('fluxo_calendario').delete().eq('id', existente.id);
+    if (existente?.id) {
+      const { error } = await db.from('fluxo_calendario').delete().eq('id', existente.id);
+      console.log('FP delete:', error || 'OK');
+    }
     delete FP_PROJ[projKey];
     return;
   }
 
   const payload = {
-    unidade_id: FP_UID,
+    unidade_id: parseInt(FP_UID),
     data: dataStr,
-    tipo: tipo || (cat?.tipo) || 'S',
-    valor,
-    descricao: cat?.nome || String(catId).replace('nome_','') || 'Projeção',
+    tipo: tipo || 'S',
+    valor: parseFloat(valor),
+    descricao: cat?.nome || 'Projeção',
   };
-  // cat_id vincula a projeção à categoria
   if (catIdNum) payload.cat_id = catIdNum;
+
+  console.log('FP payload:', payload);
 
   if (existente?.id) {
     const { error } = await db.from('fluxo_calendario')
-      .update({ valor, descricao: payload.descricao })
+      .update({ valor: payload.valor, descricao: payload.descricao })
       .eq('id', existente.id);
-    if (!error) FP_PROJ[projKey] = { ...existente, valor };
-    else console.error('FP update error:', error.message);
+    console.log('FP update:', error ? error.message : 'OK');
+    if (!error) FP_PROJ[projKey] = { ...existente, valor: payload.valor };
   } else {
     const { data, error } = await db.from('fluxo_calendario')
-      .insert(payload).select().single();
-    if (!error && data) FP_PROJ[projKey] = { valor, id: data.id };
-    else console.error('FP insert error:', error?.message);
+      .insert(payload).select('id').single();
+    console.log('FP insert:', error ? error.message : 'OK', data);
+    if (!error && data) FP_PROJ[projKey] = { valor: payload.valor, id: data.id };
   }
 }
 
