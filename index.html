@@ -5517,24 +5517,32 @@ function fpEditarCelula(el, dataStr, catId, tipo, valorAtual) {
   input.focus();
   input.select();
 
-  let salvando = false;
+  let committed = false;
 
-  const salvar = async () => {
-    if (salvando) return;
-    salvando = true;
+  const commit = async () => {
+    if (committed) return;
+    committed = true;
+    input.removeEventListener('blur', onBlur);
     const novoVal = parseFloat(input.value) || 0;
     await fpSalvarProjecao(dataStr, catId, tipo, novoVal);
     await renderFluxoProjetado();
   };
 
+  const onBlur = () => { if (!committed) commit(); };
+
   input.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); salvar(); }
-    if (e.key === 'Escape') { renderFluxoProjetado(); }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      commit();
+    } else if (e.key === 'Escape') {
+      committed = true;
+      input.removeEventListener('blur', onBlur);
+      renderFluxoProjetado();
+    }
   });
 
-  input.addEventListener('blur', () => {
-    if (!salvando) salvar();
-  });
+  input.addEventListener('blur', onBlur);
 }
 
 async function fpSalvarProjecao(dataStr, catId, tipo, valor) {
