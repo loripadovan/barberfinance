@@ -5531,26 +5531,40 @@ function fpEditarCelula(el, dataStr, catId, tipo, valorAtual) {
 
 async function fpSalvarProjecao(dataStr, catId, tipo, valor) {
   if (!db || !FP_UID) return;
-  const cat = CACHE.categorias.find(c => c.id == catId);
+
+  // catId pode ser número (id real) ou string 'nome_X' (fallback)
+  const catIdNum = (typeof catId === 'number' || !isNaN(catId)) ? parseInt(catId) : null;
+  const cat = catIdNum ? CACHE.categorias.find(c => c.id == catIdNum) : null;
   const projKey = `${dataStr}_${catId}`;
   const existente = FP_PROJ[projKey];
 
   if (valor <= 0) {
-    // Excluir se existia
     if (existente?.id) await db.from('fluxo_calendario').delete().eq('id', existente.id);
     delete FP_PROJ[projKey];
     return;
   }
 
+  const payload = {
+    unidade_id: FP_UID,
+    data: dataStr,
+    tipo: tipo || (cat?.tipo) || 'S',
+    valor,
+    descricao: cat?.nome || String(catId).replace('nome_','') || 'Projeção',
+  };
+  // Só inclui cat_id se for um número válido
+  if (catIdNum) payload.cat_id = catIdNum;
+
   if (existente?.id) {
-    await db.from('fluxo_calendario').update({ valor, descricao: cat?.nome||'Projeção' }).eq('id', existente.id);
-    FP_PROJ[projKey] = { ...existente, valor };
+    const { error } = await db.from('fluxo_calendario')
+      .update({ valor, descricao: payload.descricao })
+      .eq('id', existente.id);
+    if (!error) FP_PROJ[projKey] = { ...existente, valor };
+    else console.error('FP update error:', error.message);
   } else {
-    const { data } = await db.from('fluxo_calendario').insert({
-      unidade_id: FP_UID, data: dataStr, tipo, valor,
-      descricao: cat?.nome||'Projeção', cat_id: catId
-    }).select().single();
-    if (data) FP_PROJ[projKey] = { valor, id: data.id };
+    const { data, error } = await db.from('fluxo_calendario')
+      .insert(payload).select().single();
+    if (!error && data) FP_PROJ[projKey] = { valor, id: data.id };
+    else console.error('FP insert error:', error?.message);
   }
 }
 
