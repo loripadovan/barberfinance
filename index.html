@@ -5580,37 +5580,7 @@ async function fpSalvarProjecao(dataStr, catId, tipo, valor) {
   const projKey = `${dataStr}_${catId}`;
   const existente = FP_PROJ[projKey];
 
-  if (valor <= 0) {
-    // Verifica se há orçamento para esta célula — se sim, salva como suprimido (-0.01)
-    // Se não há orçamento, apaga normalmente
-    const catIdNum2 = (!isNaN(catId) && catId !== null) ? parseInt(catId) : null;
-    const orcItens2 = getOrcamento(parseInt(FP_UID));
-    const cat2 = catIdNum2 ? CACHE.categorias.find(c => c.id == catIdNum2) : null;
-    const temOrc = orcItens2.some(i => {
-      const d = parseInt(dataStr.split('-')[2]);
-      return cat2 && i.nome === cat2.nome && i.dia === d;
-    });
-
-    if (existente?.id) {
-      if (temOrc) {
-        // Tem orçamento — salva como suprimido para impedir que o orçamento reapareça
-        await db.from('fluxo_calendario').update({ valor: -0.01, descricao: payload.descricao }).eq('id', existente.id);
-        FP_PROJ[projKey] = { ...existente, valor: -0.01 };
-      } else {
-        await db.from('fluxo_calendario').delete().eq('id', existente.id);
-        delete FP_PROJ[projKey];
-      }
-    } else if (temOrc) {
-      // Não havia projeção mas tem orçamento — cria registro suprimido
-      const { data: d2, error } = await db.from('fluxo_calendario')
-        .insert({ ...payload, valor: -0.01 }).select('id').single();
-      if (!error && d2) FP_PROJ[projKey] = { valor: -0.01, id: d2.id };
-    } else {
-      delete FP_PROJ[projKey];
-    }
-    return;
-  }
-
+  // Payload base — definido antes do bloco de zero
   const payload = {
     unidade_id: parseInt(FP_UID),
     data: dataStr,
@@ -5619,6 +5589,31 @@ async function fpSalvarProjecao(dataStr, catId, tipo, valor) {
     descricao: cat?.nome || 'Projeção',
   };
   if (catIdNum) payload.cat_id = catIdNum;
+
+  if (valor <= 0) {
+    const orcItens2 = getOrcamento(parseInt(FP_UID));
+    const temOrc = orcItens2.some(i => {
+      const d = parseInt(dataStr.split('-')[2]);
+      return cat && i.nome === cat.nome && i.dia === d;
+    });
+
+    if (existente?.id) {
+      if (temOrc) {
+        await db.from('fluxo_calendario').update({ valor: -0.01, descricao: payload.descricao }).eq('id', existente.id);
+        FP_PROJ[projKey] = { ...existente, valor: -0.01 };
+      } else {
+        await db.from('fluxo_calendario').delete().eq('id', existente.id);
+        delete FP_PROJ[projKey];
+      }
+    } else if (temOrc) {
+      const { data: d2, error } = await db.from('fluxo_calendario')
+        .insert({ ...payload, valor: -0.01 }).select('id').single();
+      if (!error && d2) FP_PROJ[projKey] = { valor: -0.01, id: d2.id };
+    } else {
+      delete FP_PROJ[projKey];
+    }
+    return;
+  }
 
   console.log('FP payload:', payload);
 
