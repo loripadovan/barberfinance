@@ -5408,8 +5408,9 @@ async function renderFluxoProjetado() {
 
       dadosCat[catId][d] = { real: realVal, proj: projVal, orc: orcVal, suprimido: projVal === -0.01 };
 
-      // Contribuição para saldo — proj tem prioridade sobre orc; suprimido não conta
-      const efetivo = dados.suprimido ? 0 : (realVal || (projVal > 0 ? projVal : 0) || orcVal);
+      // Contribuição para saldo — suprimido não conta
+      const suprimido = projVal === -0.01;
+      const efetivo = suprimido ? 0 : (realVal || (projVal > 0 ? projVal : 0) || orcVal);
       if (cat.tipo === 'E') saldoDia[d] += efetivo;
       else saldoDia[d] -= efetivo;
     }
