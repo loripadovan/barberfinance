@@ -230,6 +230,7 @@ tbody tr:last-child{border-bottom:none}
 
 /* ===== DRE ===== */
 .dre-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px}
+.dre-row.sem-mov{opacity:.45}
 .dre-row:last-child{border:none}
 .dre-row.indent{padding-left:16px;color:var(--text2)}
 .dre-row.total{font-weight:600;border-top:1px solid var(--border2);border-bottom:none;margin-top:2px;padding-top:8px}
@@ -2320,10 +2321,12 @@ function showPage(id) {
 //  CÁLCULOS DRE / METAS
 // ============================================================
 function calcDRE(list) {
-  const soma = g => list.filter(l => l.grupo===g && l.tipo==='S').reduce((s,l) => s+parseFloat(l.valor||0), 0);
-  const somaE = g => list.filter(l => l.grupo===g && l.tipo==='E').reduce((s,l) => s+parseFloat(l.valor||0), 0);
+  const EXCLUIR = ['Transferência entre Contas','Transferencia entre Contas'];
+  const lst = list.filter(l => !EXCLUIR.includes(l.cat_nome));
+  const soma = g => lst.filter(l => l.grupo===g && l.tipo==='S').reduce((s,l) => s+parseFloat(l.valor||0), 0);
+  const somaE = g => lst.filter(l => l.grupo===g && l.tipo==='E').reduce((s,l) => s+parseFloat(l.valor||0), 0);
 
-  const fat_bruto = list.filter(l => l.grupo==='receita' && l.tipo==='E').reduce((s,l) => s+parseFloat(l.valor||0), 0);
+  const fat_bruto = lst.filter(l => l.grupo==='receita' && l.tipo==='E').reduce((s,l) => s+parseFloat(l.valor||0), 0);
   const deducao   = soma('deducao');
   const receita   = fat_bruto - deducao; // Receita Líquida
   const csp       = soma('csp');
@@ -2613,7 +2616,9 @@ function getDrePeriodoLabel() {
 }
 
 function renderDRE() {
-  const list = getDreLancamentos();
+  // Excluir transferências do DRE
+  const EXCLUIR = ['Transferência entre Contas','Transferencia entre Contas'];
+  const list = getDreLancamentos().filter(l => !EXCLUIR.includes(l.cat_nome));
   const d    = calcDRE(list);
   const pct  = v => d.fat_bruto ? fPct(v/d.fat_bruto) : '—';
   const pctR = v => d.receita   ? fPct(v/d.receita)   : '—';
@@ -2625,34 +2630,52 @@ function renderDRE() {
     <div class="stat"><div class="stat-label">EBITDA</div><div class="stat-value ${d.ebitda>=0?'g':'r'}">${fBRL(d.ebitda)}</div><div class="stat-delta">${pctR(d.ebitda)} da rec. líq.</div></div>
   `;
 
+  // Mostra TODAS as categorias do grupo — com ou sem movimento
   const catR = (grupo) => {
-    const catsComValor = new Map();
-    list.filter(l => l.grupo === grupo).forEach(l => {
+    // Categorias cadastradas no plano de contas
+    const todasCats = CACHE.categorias.filter(c => c.grupo === grupo && !EXCLUIR.includes(c.nome));
+    // Valores reais dos lançamentos
+    const valoresPorCat = new Map();
+    list.filter(l => l.grupo === grupo && !EXCLUIR.includes(l.cat_nome)).forEach(l => {
       const key  = l.cat_id || l.cat_nome || '?';
       const nome = l.cat_nome || (l.cat_id ? (CACHE.categorias.find(c=>c.id===l.cat_id)?.nome||'?') : '?');
-      if (!catsComValor.has(key)) catsComValor.set(key, { nome, valor: 0 });
-      catsComValor.get(key).valor += parseFloat(l.valor||0);
+      if (!valoresPorCat.has(key)) valoresPorCat.set(key, { nome, valor: 0 });
+      valoresPorCat.get(key).valor += parseFloat(l.valor||0);
     });
-    if (!catsComValor.size) return '<div class="dre-row indent" style="color:var(--text3);font-style:italic">Sem lançamentos</div>';
-    return [...catsComValor.values()]
-      .filter(c => c.valor > 0)
+    // Merge: categorias cadastradas + lançamentos sem cat_id
+    const resultado = new Map();
+    todasCats.forEach(c => resultado.set(c.id, { nome: c.nome, valor: valoresPorCat.get(c.id)?.valor || 0 }));
+    // Adicionar lançamentos com cat_nome mas sem cat_id correspondente
+    valoresPorCat.forEach((v, key) => {
+      if (!resultado.has(key)) resultado.set(key, v);
+    });
+    return [...resultado.values()]
       .sort((a,b) => b.valor - a.valor)
-      .map(c => `<div class="dre-row indent"><span>${c.nome}</span><span>${fBRL(c.valor)} <span style="font-size:11px;color:var(--text3)">${pct(c.valor)}</span></span></div>`)
+      .map(c => `<div class="dre-row indent ${c.valor===0?'sem-mov':''}">
+        <span style="${c.valor===0?'color:var(--text3)':''}">${c.nome}</span>
+        <span style="${c.valor===0?'color:var(--text3)':''}">${c.valor>0?fBRL(c.valor)+' <span style="font-size:11px;color:var(--text3)">'+pct(c.valor)+'</span>':'—'}</span>
+      </div>`)
       .join('');
   };
 
+  // Categorias de entrada
   const catRe = (grupo) => {
-    const catsComValor = new Map();
+    const todasCats = CACHE.categorias.filter(c => c.grupo === grupo && c.tipo === 'E' && !EXCLUIR.includes(c.nome));
+    const valoresPorCat = new Map();
     list.filter(l => l.grupo === grupo && l.tipo === 'E').forEach(l => {
       const key  = l.cat_id || l.cat_nome || '?';
       const nome = l.cat_nome || '?';
-      if (!catsComValor.has(key)) catsComValor.set(key, { nome, valor: 0 });
-      catsComValor.get(key).valor += parseFloat(l.valor||0);
+      if (!valoresPorCat.has(key)) valoresPorCat.set(key, { nome, valor: 0 });
+      valoresPorCat.get(key).valor += parseFloat(l.valor||0);
     });
-    return [...catsComValor.values()]
-      .filter(c => c.valor > 0)
+    const resultado = new Map();
+    todasCats.forEach(c => resultado.set(c.id, { nome: c.nome, valor: valoresPorCat.get(c.id)?.valor || 0 }));
+    return [...resultado.values()]
       .sort((a,b) => b.valor - a.valor)
-      .map(c => `<div class="dre-row indent"><span>${c.nome}</span><span class="tx-e">${fBRL(c.valor)}</span></div>`)
+      .map(c => `<div class="dre-row indent ${c.valor===0?'sem-mov':''}">
+        <span style="${c.valor===0?'color:var(--text3)':''}">${c.nome}</span>
+        <span class="${c.valor>0?'tx-e':''}" style="${c.valor===0?'color:var(--text3)':''}">${c.valor>0?fBRL(c.valor):'—'}</span>
+      </div>`)
       .join('');
   };
 
@@ -2665,43 +2688,49 @@ function renderDRE() {
     </div>
     ${totalHtml}`;
 
+  // Resultado Financeiro separado: Receitas | Despesas
+  const rfEntradas = list.filter(l => l.grupo==='resultado_financeiro' && l.tipo==='E' && !EXCLUIR.includes(l.cat_nome));
+  const rfSaidas   = list.filter(l => l.grupo==='resultado_financeiro' && l.tipo==='S' && !EXCLUIR.includes(l.cat_nome));
+  const rfEntradasMap = new Map();
+  const rfSaidasMap   = new Map();
+  rfEntradas.forEach(l => { const k=l.cat_nome||'?'; rfEntradasMap.set(k,{nome:k,valor:(rfEntradasMap.get(k)?.valor||0)+parseFloat(l.valor||0)}); });
+  rfSaidas.forEach(l =>   { const k=l.cat_nome||'?'; rfSaidasMap.set(k,{nome:k,valor:(rfSaidasMap.get(k)?.valor||0)+parseFloat(l.valor||0)}); });
+
+  const rfHTML =
+    (rfEntradasMap.size ? `<div class="dre-row indent" style="font-size:10px;font-weight:600;color:var(--g1);text-transform:uppercase;letter-spacing:.05em">Receitas Financeiras</div>` +
+      [...rfEntradasMap.values()].map(c=>`<div class="dre-row indent"><span>${c.nome}</span><span class="tx-e">${fBRL(c.valor)}</span></div>`).join('') : '') +
+    (rfSaidasMap.size ? `<div class="dre-row indent" style="font-size:10px;font-weight:600;color:var(--r1);text-transform:uppercase;letter-spacing:.05em;margin-top:4px">Despesas Financeiras</div>` +
+      [...rfSaidasMap.values()].map(c=>`<div class="dre-row indent"><span>${c.nome}</span><span class="tx-s">${fBRL(c.valor)}</span></div>`).join('') : '') ||
+    '<div class="dre-row indent" style="color:var(--text3);font-style:italic">Sem movimentação</div>';
+
   document.getElementById('dre-body').innerHTML =
 
-    // 1. FATURAMENTO BRUTO
     grupoBloco('receita', 'Faturamento Bruto', catRe('receita'),
       `<div class="dre-row total big"><span>Faturamento Bruto</span><span class="tx-e">${fBRL(d.fat_bruto)}</span></div>`) +
 
-    // 2. DEDUÇÕES
     grupoBloco('deducao', 'Deduções do Faturamento', catR('deducao'),
       `<div class="dre-row total"><span>Total Deduções</span><span class="tx-s">${fBRL(d.deducao)} <span style="font-size:11px;color:var(--text3)">${pct(d.deducao)}</span></span></div>`) +
 
-    // = RECEITA LÍQUIDA
     `<div class="dre-row total big" style="background:var(--bg2)"><span>= RECEITA LÍQUIDA</span><span class="${d.receita>=0?'tx-e':'tx-s'}">${fBRL(d.receita)} <span style="font-size:11px">${pct(d.receita)}</span></span></div>` +
 
-    // 3. CSP
     grupoBloco('csp', 'CSP — Custo do Serviço Prestado', catR('csp'),
       `<div class="dre-row total"><span>Total CSP</span><span class="tx-s">${fBRL(d.csp)} <span style="font-size:11px;color:var(--text3)">${pctR(d.csp)}</span></span></div>`) +
 
-    // 4. CMV
     grupoBloco('cmv', 'CMV — Custo da Mercadoria Vendida', catR('cmv'),
       `<div class="dre-row total"><span>Total CMV</span><span class="tx-s">${fBRL(d.cmv)} <span style="font-size:11px;color:var(--text3)">${pctR(d.cmv)}</span></span></div>`) +
 
-    // = MARGEM BRUTA
     `<div class="dre-row total big" style="background:var(--bg2)"><span>= MARGEM BRUTA</span><span class="${d.mg_bruta>=0?'tx-e':'tx-s'}">${fBRL(d.mg_bruta)} <span style="font-size:11px">${pctR(d.mg_bruta)}</span></span></div>` +
 
-    // 5. DESPESAS OPERACIONAIS
     grupoBloco('do', 'Despesas Operacionais', catR('despesa_operacional'),
       `<div class="dre-row total"><span>Total Despesas Operacionais</span><span class="tx-s">${fBRL(d.cf)} <span style="font-size:11px;color:var(--text3)">${pctR(d.cf)}</span></span></div>`) +
 
-    // = EBITDA
     `<div class="dre-row total big" style="background:var(--bg2)"><span>= EBITDA</span><span class="${d.ebitda>=0?'tx-e':'tx-s'}">${fBRL(d.ebitda)} <span style="font-size:11px">${pctR(d.ebitda)}</span></span></div>` +
 
-    // 6. RESULTADO FINANCEIRO
-    grupoBloco('rf', 'Resultado Financeiro',
-      catRe('resultado_financeiro') + catR('resultado_financeiro'),
-      `<div class="dre-row total"><span>Saldo Financeiro</span><span class="${(d.rec_fin-d.desp_fin)>=0?'tx-e':'tx-s'}">${fBRL(d.rec_fin - d.desp_fin)}</span></div>`) +
+    grupoBloco('rf', 'Resultado Financeiro', rfHTML,
+      `<div class="dre-row total"><span>Saldo Financeiro</span>
+        <span class="${(d.rec_fin-d.desp_fin)>=0?'tx-e':'tx-s'}">${fBRL(d.rec_fin-d.desp_fin)}</span>
+      </div>`) +
 
-    // = RESULTADO LÍQUIDO
     `<div class="dre-row total big" style="background:var(--bg2);border-top:2px solid var(--border2)"><span>= RESULTADO LÍQUIDO</span><span class="${d.res_liq>=0?'tx-e':'tx-s'}">${fBRL(d.res_liq)} <span style="font-size:11px">${pctR(d.res_liq)}</span></span></div>`;
 }
 
