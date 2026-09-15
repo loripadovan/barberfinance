@@ -888,9 +888,9 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
           <select id="fil-grupo" onchange="renderLanc()" style="width:140px">
             <option value="">Todos os grupos</option>
             <option value="receita">Receitas</option>
-            <option value="custo_variavel">Custo Variável</option>
-            <option value="custo_fixo">Custo Fixo</option>
-            <option value="nao_operacional">Não Operacional</option>
+            <option value="csp">CSP</option><option value="cmv">CMV</option><option value="deducao">Dedução</option>
+            <option value="despesa_operacional">Despesa Operacional</option>
+            <option value="resultado_financeiro">Result. Financeiro</option>
           </select>
           <select id="fil-t" onchange="renderLanc()" style="width:130px"><option value="">Entrada + Saída</option><option value="E">Entradas</option><option value="S">Saídas</option></select>
           <select id="fil-m" onchange="renderLanc()" style="width:130px"></select>
@@ -967,9 +967,9 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
           <select id="fc-grupo" onchange="renderFluxo()" style="width:140px">
             <option value="">Todos os grupos</option>
             <option value="receita">Receitas</option>
-            <option value="custo_variavel">Custo Variável</option>
-            <option value="custo_fixo">Custo Fixo</option>
-            <option value="nao_operacional">Não Operacional</option>
+            <option value="csp">CSP</option><option value="cmv">CMV</option><option value="deducao">Dedução</option>
+            <option value="despesa_operacional">Despesa Operacional</option>
+            <option value="resultado_financeiro">Result. Financeiro</option>
           </select>
           <select id="fc-t" onchange="renderFluxo()" style="width:120px"><option value="">Entrada + Saída</option><option value="E">Entradas</option><option value="S">Saídas</option></select>
           <div style="display:flex;align-items:center;gap:4px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:0 8px;height:34px">
@@ -1015,9 +1015,11 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
       <div class="content">
         <div class="tabs">
           <div class="tab active" onclick="switchCatTab('receita',this)">Receitas</div>
-          <div class="tab" onclick="switchCatTab('custo_variavel',this)">Custos Variáveis</div>
-          <div class="tab" onclick="switchCatTab('custo_fixo',this)">Custos Fixos</div>
-          <div class="tab" onclick="switchCatTab('nao_operacional',this)">Não Operacionais</div>
+          <div class="tab" onclick="switchCatTab('deducao',this)">Deduções</div>
+          <div class="tab" onclick="switchCatTab('csp',this)">CSP</div>
+          <div class="tab" onclick="switchCatTab('cmv',this)">CMV</div>
+          <div class="tab" onclick="switchCatTab('despesa_operacional',this)">Desp. Operacionais</div>
+          <div class="tab" onclick="switchCatTab('resultado_financeiro',this)">Result. Financeiro</div>
         </div>
         <div style="overflow-x:auto"><table>
           <thead><tr><th>Nome</th><th>Tipo</th><th>Ações</th></tr></thead>
@@ -1295,7 +1297,14 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
     <input type="hidden" id="cat-id">
     <div class="field-group"><label>Nome *</label><input type="text" id="cat-nome" placeholder="Ex: Serviços de Corte"></div>
     <div class="field-row">
-      <div class="field-group"><label>Grupo</label><select id="cat-grupo"><option value="receita">Receita</option><option value="custo_variavel">Custo Variável</option><option value="custo_fixo">Custo Fixo</option><option value="nao_operacional">Não Operacional</option></select></div>
+      <div class="field-group"><label>Grupo</label><select id="cat-grupo">
+  <option value="receita">Receita</option>
+  <option value="deducao">Dedução do Faturamento</option>
+  <option value="csp">CSP — Custo do Serviço Prestado</option>
+  <option value="cmv">CMV — Custo da Mercadoria Vendida</option>
+  <option value="despesa_operacional">Despesa Operacional</option>
+  <option value="resultado_financeiro">Resultado Financeiro</option>
+</select></div>
       <div class="field-group"><label>Tipo</label><select id="cat-tipo"><option value="E">Entrada</option><option value="S">Saída</option></select></div>
     </div>
     <div class="modal-actions">
@@ -1846,8 +1855,8 @@ const DEFAULT_KEY = 'sb_publishable_FMvY8k0nY6gEkLVEXTh9ig_aWNcfQfM';
 // ============================================================
 //  ESTADO GLOBAL
 // ============================================================
-const GRUPOS = {receita:'Receita',custo_variavel:'Custo Variável',custo_fixo:'Custo Fixo',nao_operacional:'Não Operacional'};
-const GCLS   = {receita:'g',custo_variavel:'a',custo_fixo:'b',nao_operacional:'gr'};
+const GRUPOS = {receita:'Receita',deducao:'Dedução',csp:'CSP',cmv:'CMV',despesa_operacional:'Desp. Operacional',resultado_financeiro:'Result. Financeiro',custo_variavel:'CV (antigo)',custo_fixo:'CF (antigo)',nao_operacional:'NOP (antigo)'};
+const GCLS   = {receita:'g',deducao:'a',csp:'a',cmv:'a',despesa_operacional:'b',resultado_financeiro:'gr',custo_variavel:'a',custo_fixo:'b',nao_operacional:'gr'};
 
 let db       = null;   // cliente Supabase
 let CACHE    = { unidades:[], categorias:[], regras:[], lancamentos:[], contas:[], orcamentos:[], calManual:[], emprestimos:[], empPagamentos:[] };
