@@ -336,7 +336,7 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
     <div class="nav-item" onclick="showPage('importar')"><i class="ti ti-upload"></i> Importar OFX</div>
     <div class="nav-item" onclick="showPage('massa')"><i class="ti ti-tags"></i> Categorizar <span class="nav-badge red" id="pill-sem">0</span></div>
     <div class="nav-item" onclick="showPage('lancamentos')"><i class="ti ti-list"></i> Lançamentos</div>
-    <div class="nav-item" onclick="showPage('dre')"><i class="ti ti-file-analytics"></i> DRE Gerencial</div>
+    <div class="nav-item" onclick="showPage('dre')"><i class="ti ti-file-analytics"></i> DRE</div>
     <div class="nav-item" onclick="showPage('fluxo')"><i class="ti ti-chart-bar"></i> Fluxo de Caixa</div>
     <div class="nav-item" onclick="showPage('fluxoprojetado')"><i class="ti ti-table-column"></i> Fluxo Projetado</div>
     <div class="nav-sec">Cadastros</div>
@@ -923,7 +923,7 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
     <div id="page-dre" class="page">
       <div class="topbar" style="flex-direction:column;align-items:stretch;gap:8px;padding-bottom:10px">
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <div><div class="topbar-title">DRE Gerencial</div><div class="topbar-sub">Regime caixa — por mês ou período personalizado</div></div>
+          <div><div class="topbar-title">DRE</div></div>
           <div style="display:flex;gap:6px">
             <button class="btn sm" onclick="visualizarDREPDF()"><i class="ti ti-eye"></i> Visualizar</button>
             <button class="btn primary sm" onclick="exportarDREPDF()" id="btn-dre-pdf"><i class="ti ti-file-download"></i> PDF</button>
@@ -3537,22 +3537,57 @@ function renderCategorias() {
   const cats = CACHE.categorias.filter(c=>c.grupo===catTabAtivo);
   document.getElementById('cat-body').innerHTML = !cats.length
     ? '<tr><td colspan="3"><div class="empty"><i class="ti ti-tag"></i>Nenhuma categoria</div></td></tr>'
-    : cats.map(c => `<tr><td>${c.nome}</td><td><span class="badge ${c.tipo==='E'?'g':'r'}">${c.tipo==='E'?'Entrada':'Saída'}</span></td><td><button class="btn sm" onclick="editarCategoria(${c.id})"><i class="ti ti-edit"></i></button> <button class="btn sm danger" onclick="excluirCategoria(${c.id})"><i class="ti ti-trash"></i></button></td></tr>`).join('');
+    : cats.map(c => {
+        const emUso = CACHE.lancamentos.some(l => l.cat_id === c.id);
+        const qtd   = emUso ? CACHE.lancamentos.filter(l => l.cat_id === c.id).length : 0;
+        return `<tr>
+          <td>${c.nome} ${emUso ? `<span class="badge gr" style="font-size:9px" title="${qtd} lançamentos">${qtd} uso${qtd>1?'s':''}</span>` : ''}</td>
+          <td><span class="badge ${c.tipo==='E'?'g':'r'}">${c.tipo==='E'?'Entrada':'Saída'}</span></td>
+          <td>
+            <button class="btn sm" onclick="editarCategoria(${c.id})"><i class="ti ti-edit"></i></button>
+            <button class="btn sm danger" onclick="excluirCategoria(${c.id})" ${emUso?`title="Em uso — não pode excluir" style="opacity:.4;cursor:not-allowed"`:''}><i class="ti ti-trash"></i></button>
+          </td>
+        </tr>`;
+      }).join('');
 }
 function editarCategoria(id) {
   const c = CACHE.categorias.find(c=>c.id===id); if(!c) return;
+  // Verificar se está em uso
+  const emUso = CACHE.lancamentos.some(l => l.cat_id === id);
   document.getElementById('cat-id').value    = c.id;
   document.getElementById('cat-nome').value  = c.nome;
   document.getElementById('cat-grupo').value = c.grupo;
   document.getElementById('cat-tipo').value  = c.tipo;
   document.getElementById('modal-cat-title').textContent = 'Editar Categoria';
+  // Bloquear nome e tipo se em uso — só permite alterar grupo
+  document.getElementById('cat-nome').disabled  = emUso;
+  document.getElementById('cat-tipo').disabled  = emUso;
+  if (emUso) {
+    document.getElementById('cat-nome').title = 'Categoria em uso — nome não pode ser alterado';
+    document.getElementById('cat-tipo').title = 'Categoria em uso — tipo não pode ser alterado';
+  } else {
+    document.getElementById('cat-nome').title = '';
+    document.getElementById('cat-tipo').title = '';
+  }
   document.getElementById('modal-categoria').classList.add('open');
 }
+
 async function salvarCategoria() {
   if(!db) { alert('Configure o Supabase.'); return; }
-  const nome = document.getElementById('cat-nome').value.trim(); if(!nome) return;
-  const id   = parseInt(document.getElementById('cat-id').value)||null;
-  const payload = { nome, grupo:document.getElementById('cat-grupo').value, tipo:document.getElementById('cat-tipo').value };
+  const nome  = document.getElementById('cat-nome').value.trim(); if(!nome) return;
+  const id    = parseInt(document.getElementById('cat-id').value)||null;
+  const grupo = document.getElementById('cat-grupo').value;
+  const tipo  = document.getElementById('cat-tipo').value;
+
+  // Se em uso, manter nome e tipo originais
+  const catAtual = id ? CACHE.categorias.find(c=>c.id===id) : null;
+  const emUso    = id ? CACHE.lancamentos.some(l => l.cat_id === id) : false;
+  const payload  = {
+    nome:  emUso ? catAtual.nome : nome,
+    grupo,
+    tipo:  emUso ? catAtual.tipo : tipo
+  };
+
   showLoading('Salvando...');
   let error;
   if(id) { ({error} = await db.from('categorias').update(payload).eq('id',id)); }
@@ -3561,17 +3596,31 @@ async function salvarCategoria() {
   if(error) { alert('Erro: '+error.message); return; }
   fecharModal('modal-categoria');
   document.getElementById('cat-id').value = '';
+  document.getElementById('cat-nome').disabled = false;
+  document.getElementById('cat-tipo').disabled = false;
   document.getElementById('modal-cat-title').textContent = 'Nova Categoria';
   await carregarTudo();
   renderCategorias();
+  // Atualizar DRE automaticamente se estiver visível
+  if (document.getElementById('page-dre')?.classList.contains('active')) renderDRE();
 }
+
 async function excluirCategoria(id) {
+  // Verificar se está em uso
+  const emUso = CACHE.lancamentos.some(l => l.cat_id === id);
+  if (emUso) {
+    const cat   = CACHE.categorias.find(c=>c.id===id);
+    const qtd   = CACHE.lancamentos.filter(l => l.cat_id === id).length;
+    alert(`Não é possível excluir "${cat?.nome}" — está sendo usada em ${qtd} lançamento${qtd>1?'s':''}.\n\nPara excluir, primeiro recategorize esses lançamentos.`);
+    return;
+  }
   confirmarExclusao('Excluir esta categoria?', async () => {
     showLoading('Excluindo...');
     await db.from('categorias').delete().eq('id',id);
     hideLoading();
     await carregarTudo();
     renderCategorias();
+    if (document.getElementById('page-dre')?.classList.contains('active')) renderDRE();
   });
 }
 
