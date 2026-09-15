@@ -2321,16 +2321,38 @@ function showPage(id) {
 // ============================================================
 function calcDRE(list) {
   const soma = g => list.filter(l => l.grupo===g && l.tipo==='S').reduce((s,l) => s+parseFloat(l.valor||0), 0);
-  const receita = list.filter(l => l.grupo==='receita' && l.tipo==='E').reduce((s,l) => s+parseFloat(l.valor||0), 0);
-  const cv = soma('custo_variavel'), cf = soma('custo_fixo'), nop = soma('nao_operacional');
-  return { receita, cv, cf, nop, mg: receita-cv, res_op: receita-cv-cf, res_liq: receita-cv-cf-nop };
+  const somaE = g => list.filter(l => l.grupo===g && l.tipo==='E').reduce((s,l) => s+parseFloat(l.valor||0), 0);
+
+  const fat_bruto = list.filter(l => l.grupo==='receita' && l.tipo==='E').reduce((s,l) => s+parseFloat(l.valor||0), 0);
+  const deducao   = soma('deducao');
+  const receita   = fat_bruto - deducao; // Receita Líquida
+  const csp       = soma('csp');
+  const cmv       = soma('cmv');
+  const cv        = csp + cmv; // total custos variáveis (para compatibilidade)
+  const cf        = soma('despesa_operacional');
+  const rec_fin   = somaE('resultado_financeiro');
+  const desp_fin  = soma('resultado_financeiro');
+  const nop       = desp_fin - rec_fin; // saldo financeiro
+
+  const mg_bruta  = receita - csp - cmv;           // Margem Bruta
+  const ebitda    = mg_bruta - cf;                  // EBITDA
+  const res_liq   = ebitda + rec_fin - desp_fin;    // Resultado Líquido
+
+  // Aliases para compatibilidade com código existente
+  return {
+    fat_bruto, deducao, receita, csp, cmv, cv, cf,
+    rec_fin, desp_fin, nop, mg_bruta,
+    mg: receita - cv,         // Margem de Contribuição (alias)
+    res_op: ebitda,           // Resultado Operacional = EBITDA (alias)
+    ebitda, res_liq
+  };
 }
+
 function calcMeta(list) {
   const d = calcDRE(list);
-  const cvPct = d.receita > 0 ? d.cv/d.receita : 0.28;
-  const pe  = cvPct < 1 ? d.cf / (1-cvPct) : d.cf;
-  const meta = pct => { const den = 1-cvPct-(pct/100); return den > 0 ? (d.cf+d.nop)/den : null; };
-  return { ...d, pe, cvPct, m1:meta(CFG_META.m1), m2:meta(CFG_META.m2), m3:meta(CFG_META.m3) };
+  const cvPct = d.receita > 0 ? (d.csp + d.cmv) / d.receita : 0.28;
+  const pe = cvPct < 1 ? d.cf / (1 - cvPct) : d.cf;
+  return { ...d, pe, cvPct };
 }
 
 // ============================================================
@@ -2353,7 +2375,7 @@ function renderGraficoEvolucao() {
   const allMeses = [...meses].reverse(); // do mais antigo ao mais recente
   const slice  = allMeses.slice(-CHART_PERIOD); // últimos N meses
 
-  const GRUPOS_OP = ['receita','custo_variavel','custo_fixo'];
+  const GRUPOS_OP = ['receita','csp','cmv','despesa_operacional'];
   const maxV = Math.max(...slice.map(m => {
     const ll = CACHE.lancamentos.filter(x => x.data.startsWith(m) && GRUPOS_OP.includes(x.grupo) && (!uid||x.unidade_id==uid));
     return Math.max(
@@ -2593,29 +2615,44 @@ function getDrePeriodoLabel() {
 function renderDRE() {
   const list = getDreLancamentos();
   const d    = calcDRE(list);
-  const pct  = v => d.receita ? fPct(v/d.receita) : '—';
+  const pct  = v => d.fat_bruto ? fPct(v/d.fat_bruto) : '—';
+  const pctR = v => d.receita   ? fPct(v/d.receita)   : '—';
 
   document.getElementById('dre-stats').innerHTML = `
-    <div class="stat"><div class="stat-label">Receita</div><div class="stat-value g">${fBRL(d.receita)}</div></div>
-    <div class="stat"><div class="stat-label">Margem Bruta</div><div class="stat-value ${d.mg>=0?'g':'r'}">${fBRL(d.mg)}</div></div>
-    <div class="stat"><div class="stat-label">Resultado Operacional</div><div class="stat-value ${d.res_op>=0?'g':'r'}">${fBRL(d.res_op)}</div></div>
-    <div class="stat"><div class="stat-label">Resultado Líquido</div><div class="stat-value ${d.res_liq>=0?'g':'r'}">${fBRL(d.res_liq)}</div></div>
+    <div class="stat"><div class="stat-label">Faturamento Bruto</div><div class="stat-value g">${fBRL(d.fat_bruto)}</div></div>
+    <div class="stat"><div class="stat-label">Receita Líquida</div><div class="stat-value g">${fBRL(d.receita)}</div><div class="stat-delta">${pct(d.receita)} do fat.</div></div>
+    <div class="stat"><div class="stat-label">Margem Bruta</div><div class="stat-value ${d.mg_bruta>=0?'g':'r'}">${fBRL(d.mg_bruta)}</div><div class="stat-delta">${pctR(d.mg_bruta)} da rec. líq.</div></div>
+    <div class="stat"><div class="stat-label">EBITDA</div><div class="stat-value ${d.ebitda>=0?'g':'r'}">${fBRL(d.ebitda)}</div><div class="stat-delta">${pctR(d.ebitda)} da rec. líq.</div></div>
   `;
 
   const catR = (grupo) => {
-    // Busca categorias que têm lançamentos no período para este grupo
     const catsComValor = new Map();
     list.filter(l => l.grupo === grupo).forEach(l => {
-      const key = l.cat_id || l.cat_nome || '?';
+      const key  = l.cat_id || l.cat_nome || '?';
       const nome = l.cat_nome || (l.cat_id ? (CACHE.categorias.find(c=>c.id===l.cat_id)?.nome||'?') : '?');
       if (!catsComValor.has(key)) catsComValor.set(key, { nome, valor: 0 });
       catsComValor.get(key).valor += parseFloat(l.valor||0);
     });
-    if (!catsComValor.size) return '';
+    if (!catsComValor.size) return '<div class="dre-row indent" style="color:var(--text3);font-style:italic">Sem lançamentos</div>';
     return [...catsComValor.values()]
       .filter(c => c.valor > 0)
       .sort((a,b) => b.valor - a.valor)
       .map(c => `<div class="dre-row indent"><span>${c.nome}</span><span>${fBRL(c.valor)} <span style="font-size:11px;color:var(--text3)">${pct(c.valor)}</span></span></div>`)
+      .join('');
+  };
+
+  const catRe = (grupo) => {
+    const catsComValor = new Map();
+    list.filter(l => l.grupo === grupo && l.tipo === 'E').forEach(l => {
+      const key  = l.cat_id || l.cat_nome || '?';
+      const nome = l.cat_nome || '?';
+      if (!catsComValor.has(key)) catsComValor.set(key, { nome, valor: 0 });
+      catsComValor.get(key).valor += parseFloat(l.valor||0);
+    });
+    return [...catsComValor.values()]
+      .filter(c => c.valor > 0)
+      .sort((a,b) => b.valor - a.valor)
+      .map(c => `<div class="dre-row indent"><span>${c.nome}</span><span class="tx-e">${fBRL(c.valor)}</span></div>`)
       .join('');
   };
 
@@ -2629,16 +2666,43 @@ function renderDRE() {
     ${totalHtml}`;
 
   document.getElementById('dre-body').innerHTML =
-    grupoBloco('receita', 'Receitas', catR('receita'),
-      `<div class="dre-row total big"><span>Receita Bruta</span><span class="tx-e">${fBRL(d.receita)} <span style="font-size:11px">${pct(d.receita)}</span></span></div>`) +
-    grupoBloco('cv', 'Custos Variáveis', catR('custo_variavel'),
-      `<div class="dre-row total"><span>Total Custos Variáveis</span><span class="tx-s">${fBRL(d.cv)} <span style="font-size:11px;color:var(--text3)">${pct(d.cv)}</span></span></div>
-       <div class="dre-row total big"><span>Margem Bruta</span><span class="${d.mg>=0?'tx-e':'tx-s'}">${fBRL(d.mg)} <span style="font-size:11px">${pct(d.mg)}</span></span></div>`) +
-    grupoBloco('cf', 'Custos Fixos', catR('custo_fixo'),
-      `<div class="dre-row total"><span>Total Custos Fixos</span><span class="tx-s">${fBRL(d.cf)} <span style="font-size:11px;color:var(--text3)">${pct(d.cf)}</span></span></div>
-       <div class="dre-row total big"><span>Resultado Operacional</span><span class="${d.res_op>=0?'tx-e':'tx-s'}">${fBRL(d.res_op)} <span style="font-size:11px">${pct(d.res_op)}</span></span></div>`) +
-    grupoBloco('nop', 'Não Operacionais', catR('nao_operacional'),
-      `<div class="dre-row total big" style="font-size:15px"><span>Resultado Líquido</span><span class="${d.res_liq>=0?'tx-e':'tx-s'}">${fBRL(d.res_liq)} <span style="font-size:12px">${pct(d.res_liq)}</span></span></div>`);
+
+    // 1. FATURAMENTO BRUTO
+    grupoBloco('receita', 'Faturamento Bruto', catRe('receita'),
+      `<div class="dre-row total big"><span>Faturamento Bruto</span><span class="tx-e">${fBRL(d.fat_bruto)}</span></div>`) +
+
+    // 2. DEDUÇÕES
+    grupoBloco('deducao', 'Deduções do Faturamento', catR('deducao'),
+      `<div class="dre-row total"><span>Total Deduções</span><span class="tx-s">${fBRL(d.deducao)} <span style="font-size:11px;color:var(--text3)">${pct(d.deducao)}</span></span></div>`) +
+
+    // = RECEITA LÍQUIDA
+    `<div class="dre-row total big" style="background:var(--bg2)"><span>= RECEITA LÍQUIDA</span><span class="${d.receita>=0?'tx-e':'tx-s'}">${fBRL(d.receita)} <span style="font-size:11px">${pct(d.receita)}</span></span></div>` +
+
+    // 3. CSP
+    grupoBloco('csp', 'CSP — Custo do Serviço Prestado', catR('csp'),
+      `<div class="dre-row total"><span>Total CSP</span><span class="tx-s">${fBRL(d.csp)} <span style="font-size:11px;color:var(--text3)">${pctR(d.csp)}</span></span></div>`) +
+
+    // 4. CMV
+    grupoBloco('cmv', 'CMV — Custo da Mercadoria Vendida', catR('cmv'),
+      `<div class="dre-row total"><span>Total CMV</span><span class="tx-s">${fBRL(d.cmv)} <span style="font-size:11px;color:var(--text3)">${pctR(d.cmv)}</span></span></div>`) +
+
+    // = MARGEM BRUTA
+    `<div class="dre-row total big" style="background:var(--bg2)"><span>= MARGEM BRUTA</span><span class="${d.mg_bruta>=0?'tx-e':'tx-s'}">${fBRL(d.mg_bruta)} <span style="font-size:11px">${pctR(d.mg_bruta)}</span></span></div>` +
+
+    // 5. DESPESAS OPERACIONAIS
+    grupoBloco('do', 'Despesas Operacionais', catR('despesa_operacional'),
+      `<div class="dre-row total"><span>Total Despesas Operacionais</span><span class="tx-s">${fBRL(d.cf)} <span style="font-size:11px;color:var(--text3)">${pctR(d.cf)}</span></span></div>`) +
+
+    // = EBITDA
+    `<div class="dre-row total big" style="background:var(--bg2)"><span>= EBITDA</span><span class="${d.ebitda>=0?'tx-e':'tx-s'}">${fBRL(d.ebitda)} <span style="font-size:11px">${pctR(d.ebitda)}</span></span></div>` +
+
+    // 6. RESULTADO FINANCEIRO
+    grupoBloco('rf', 'Resultado Financeiro',
+      catRe('resultado_financeiro') + catR('resultado_financeiro'),
+      `<div class="dre-row total"><span>Saldo Financeiro</span><span class="${(d.rec_fin-d.desp_fin)>=0?'tx-e':'tx-s'}">${fBRL(d.rec_fin - d.desp_fin)}</span></div>`) +
+
+    // = RESULTADO LÍQUIDO
+    `<div class="dre-row total big" style="background:var(--bg2);border-top:2px solid var(--border2)"><span>= RESULTADO LÍQUIDO</span><span class="${d.res_liq>=0?'tx-e':'tx-s'}">${fBRL(d.res_liq)} <span style="font-size:11px">${pctR(d.res_liq)}</span></span></div>`;
 }
 
 // ============================================================
