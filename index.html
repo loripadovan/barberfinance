@@ -5505,10 +5505,12 @@ async function renderFluxoProjetado() {
 
   // Montar estrutura de categorias (grupos do DRE)
   const grupos = [
-    { id: 'receita',        label: 'RECEITAS',         tipo: 'E' },
-    { id: 'custo_variavel', label: 'CUSTOS VARIÁVEIS', tipo: 'S' },
-    { id: 'custo_fixo',     label: 'CUSTOS FIXOS',     tipo: 'S' },
-    { id: 'nao_operacional',label: 'NÃO OPERACIONAL',  tipo: 'S' },
+    { id: 'receita',              label: 'RECEITAS',                    tipo: 'E' },
+    { id: 'deducao',              label: 'DEDUÇÕES DO FATURAMENTO',     tipo: 'S' },
+    { id: 'csp',                  label: 'CSP — CUSTO DO SERVIÇO',      tipo: 'S' },
+    { id: 'cmv',                  label: 'CMV — CUSTO DA MERCADORIA',   tipo: 'S' },
+    { id: 'despesa_operacional',  label: 'DESPESAS OPERACIONAIS',       tipo: 'S' },
+    { id: 'resultado_financeiro', label: 'RESULTADO FINANCEIRO',        tipo: 'S' },
   ];
 
   // Coletar categorias com movimento real ou orçamento
