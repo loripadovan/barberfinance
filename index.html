@@ -2330,8 +2330,9 @@ function showPage(id) {
 //  CÁLCULOS DRE / METAS
 // ============================================================
 function calcDRE(list) {
-  const EXCLUIR = ['Transferência entre Contas','Transferencia entre Contas'];
-  const lst = list.filter(l => !EXCLUIR.includes(l.cat_nome));
+  const isTransf = l => l.transferencia_id ||
+    (l.cat_nome && ['Transferência entre Contas','Transferencia entre Contas','Transferência entre contas'].some(t => l.cat_nome.toLowerCase().includes('transfer')));
+  const lst = list.filter(l => !isTransf(l));
   const soma = g => lst.filter(l => l.grupo===g && l.tipo==='S').reduce((s,l) => s+parseFloat(l.valor||0), 0);
   const somaE = g => lst.filter(l => l.grupo===g && l.tipo==='E').reduce((s,l) => s+parseFloat(l.valor||0), 0);
 
@@ -2626,26 +2627,27 @@ function getDrePeriodoLabel() {
 
 function renderDRE() {
   // Excluir transferências do DRE
-  const EXCLUIR = ['Transferência entre Contas','Transferencia entre Contas'];
-  const list = getDreLancamentos().filter(l => !EXCLUIR.includes(l.cat_nome));
+  const isTransf = l => l.transferencia_id ||
+    (l.cat_nome && l.cat_nome.toLowerCase().includes('transfer'));
+  const list = getDreLancamentos().filter(l => !isTransf(l));
   const d    = calcDRE(list);
   const pct  = v => d.fat_bruto ? fPct(v/d.fat_bruto) : '—';
   const pctR = v => d.receita   ? fPct(v/d.receita)   : '—';
 
   document.getElementById('dre-stats').innerHTML = `
-    <div class="stat"><div class="stat-label">Faturamento Bruto</div><div class="stat-value g">${fBRL(d.fat_bruto)}</div></div>
-    <div class="stat"><div class="stat-label">Receita Líquida</div><div class="stat-value g">${fBRL(d.receita)}</div><div class="stat-delta">${pct(d.receita)} do fat.</div></div>
-    <div class="stat"><div class="stat-label">Margem Bruta</div><div class="stat-value ${d.mg_bruta>=0?'g':'r'}">${fBRL(d.mg_bruta)}</div><div class="stat-delta">${pctR(d.mg_bruta)} da rec. líq.</div></div>
-    <div class="stat"><div class="stat-label">EBITDA</div><div class="stat-value ${d.ebitda>=0?'g':'r'}">${fBRL(d.ebitda)}</div><div class="stat-delta">${pctR(d.ebitda)} da rec. líq.</div></div>
+    <div class="stat"><div class="stat-label">Receita</div><div class="stat-value g">${fBRL(d.fat_bruto)}</div><div class="stat-delta">Faturamento bruto</div></div>
+    <div class="stat"><div class="stat-label">Total de Saídas</div><div class="stat-value r">${fBRL(d.deducao + d.csp + d.cmv + d.cf + d.desp_fin)}</div><div class="stat-delta">${pct(d.deducao + d.csp + d.cmv + d.cf + d.desp_fin)} da receita</div></div>
+    <div class="stat"><div class="stat-label">Lucro Líquido</div><div class="stat-value ${d.res_liq>=0?'g':'r'}">${fBRL(d.res_liq)}</div><div class="stat-delta">${d.res_liq>=0?'▲':'▼'} resultado final</div></div>
+    <div class="stat"><div class="stat-label">Lucro Líquido %</div><div class="stat-value ${d.res_liq>=0?'g':'r'}">${pctR(d.res_liq)}</div><div class="stat-delta">sobre receita líquida</div></div>
   `;
 
   // Mostra TODAS as categorias do grupo — com ou sem movimento
   const catR = (grupo) => {
     // Categorias cadastradas no plano de contas
-    const todasCats = CACHE.categorias.filter(c => c.grupo === grupo && !EXCLUIR.includes(c.nome));
+    const todasCats = CACHE.categorias.filter(c => c.grupo === grupo && !c.nome.toLowerCase().includes('transfer'));
     // Valores reais dos lançamentos
     const valoresPorCat = new Map();
-    list.filter(l => l.grupo === grupo && !EXCLUIR.includes(l.cat_nome)).forEach(l => {
+    list.filter(l => l.grupo === grupo && !isTransf(l)).forEach(l => {
       const key  = l.cat_id || l.cat_nome || '?';
       const nome = l.cat_nome || (l.cat_id ? (CACHE.categorias.find(c=>c.id===l.cat_id)?.nome||'?') : '?');
       if (!valoresPorCat.has(key)) valoresPorCat.set(key, { nome, valor: 0 });
@@ -2669,7 +2671,7 @@ function renderDRE() {
 
   // Categorias de entrada
   const catRe = (grupo) => {
-    const todasCats = CACHE.categorias.filter(c => c.grupo === grupo && c.tipo === 'E' && !EXCLUIR.includes(c.nome));
+    const todasCats = CACHE.categorias.filter(c => c.grupo === grupo && c.tipo === 'E' && !c.nome.toLowerCase().includes('transfer'));
     const valoresPorCat = new Map();
     list.filter(l => l.grupo === grupo && l.tipo === 'E').forEach(l => {
       const key  = l.cat_id || l.cat_nome || '?';
@@ -2698,8 +2700,8 @@ function renderDRE() {
     ${totalHtml}`;
 
   // Resultado Financeiro separado: Receitas | Despesas
-  const rfEntradas = list.filter(l => l.grupo==='resultado_financeiro' && l.tipo==='E' && !EXCLUIR.includes(l.cat_nome));
-  const rfSaidas   = list.filter(l => l.grupo==='resultado_financeiro' && l.tipo==='S' && !EXCLUIR.includes(l.cat_nome));
+  const rfEntradas = list.filter(l => l.grupo==='resultado_financeiro' && l.tipo==='E' && !isTransf(l));
+  const rfSaidas   = list.filter(l => l.grupo==='resultado_financeiro' && l.tipo==='S' && !isTransf(l));
   const rfEntradasMap = new Map();
   const rfSaidasMap   = new Map();
   rfEntradas.forEach(l => { const k=l.cat_nome||'?'; rfEntradasMap.set(k,{nome:k,valor:(rfEntradasMap.get(k)?.valor||0)+parseFloat(l.valor||0)}); });
