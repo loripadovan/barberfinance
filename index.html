@@ -2390,7 +2390,7 @@ function renderGraficoEvolucao() {
 
   const GRUPOS_OP = ['receita','csp','cmv','despesa_operacional'];
   const maxV = Math.max(...slice.map(m => {
-    const ll = CACHE.lancamentos.filter(x => x.data.startsWith(m) && GRUPOS_OP.includes(x.grupo) && (!uid||x.unidade_id==uid));
+    const ll = CACHE.lancamentos.filter(x => x.data.startsWith(m) && GRUPOS_OP.includes(x.grupo) && (!uid||x.unidade_id==uid) && !x.transferencia_id && !(x.cat_nome && x.cat_nome.toLowerCase().includes('transfer')));
     return Math.max(
       ll.filter(x=>x.tipo==='E').reduce((s,x)=>s+parseFloat(x.valor||0),0),
       ll.filter(x=>x.tipo==='S').reduce((s,x)=>s+parseFloat(x.valor||0),0)
@@ -2398,7 +2398,7 @@ function renderGraficoEvolucao() {
   }), 1);
 
   document.getElementById('chart-evolucao').innerHTML = slice.map(m => {
-    const ll = CACHE.lancamentos.filter(x => x.data.startsWith(m) && GRUPOS_OP.includes(x.grupo) && (!uid||x.unidade_id==uid));
+    const ll = CACHE.lancamentos.filter(x => x.data.startsWith(m) && GRUPOS_OP.includes(x.grupo) && (!uid||x.unidade_id==uid) && !x.transferencia_id && !(x.cat_nome && x.cat_nome.toLowerCase().includes('transfer')));
     const e  = ll.filter(x=>x.tipo==='E').reduce((s,x)=>s+parseFloat(x.valor||0),0);
     const s  = ll.filter(x=>x.tipo==='S').reduce((s,x)=>s+parseFloat(x.valor||0),0);
     const hE = Math.round(e/maxV*100), hS = Math.round(s/maxV*100);
@@ -2415,9 +2415,12 @@ function renderDashboard() {
   const mes = document.getElementById('db-mes').value || getMeses()[0]; if(!mes) return;
   const uid = document.getElementById('db-u').value; // '' = rede toda
 
-  // Filtrar lançamentos por unidade e mês
+  // Filtrar lançamentos por unidade e mês — excluindo transferências
   const list = CACHE.lancamentos.filter(l =>
-    l.data.startsWith(mes) && (!uid || l.unidade_id == uid)
+    l.data.startsWith(mes) &&
+    (!uid || l.unidade_id == uid) &&
+    !l.transferencia_id &&
+    !(l.cat_nome && l.cat_nome.toLowerCase().includes('transfer'))
   );
   const d = calcDRE(list);
 
@@ -2428,7 +2431,12 @@ function renderDashboard() {
   // Delta vs mês anterior
   const meses   = getMeses();
   const prevMes = meses[meses.indexOf(mes)+1];
-  const listPrev= prevMes ? CACHE.lancamentos.filter(l=>l.data.startsWith(prevMes)&&(!uid||l.unidade_id==uid)) : [];
+  const listPrev= prevMes ? CACHE.lancamentos.filter(l=>
+    l.data.startsWith(prevMes) &&
+    (!uid||l.unidade_id==uid) &&
+    !l.transferencia_id &&
+    !(l.cat_nome && l.cat_nome.toLowerCase().includes('transfer'))
+  ) : [];
   const dPrev   = prevMes ? calcDRE(listPrev) : null;
   const delta   = (a,b) => b && b>0 ? ((a-b)/b*100).toFixed(1) : null;
   const dR = delta(d.receita, dPrev?.receita);
