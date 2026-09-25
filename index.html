@@ -2444,10 +2444,10 @@ function renderDashboard() {
 
   // KPIs
   document.getElementById('db-stats').innerHTML = `
-    <div class="stat"><div class="stat-label">Receita</div><div class="stat-value g">${fBRL(d.receita)}</div><div class="stat-delta">${dR?`${dR>=0?'▲':'▼'} ${Math.abs(dR)}% vs mês anterior`:'—'}</div></div>
-    <div class="stat"><div class="stat-label">Total de Custos</div><div class="stat-value r">${fBRL(d.cv+d.cf)}</div><div class="stat-delta">${fPct(d.receita?(d.cv+d.cf)/d.receita:0)} da receita</div></div>
+    <div class="stat"><div class="stat-label">Receita</div><div class="stat-value g">${fBRL(d.fat_bruto)}</div><div class="stat-delta">${dR?`${dR>=0?'▲':'▼'} ${Math.abs(dR)}% vs mês anterior`:'—'}</div></div>
+    <div class="stat"><div class="stat-label">Total de Custos</div><div class="stat-value r">${fBRL(d.deducao+d.csp+d.cmv+d.cf+d.desp_fin)}</div><div class="stat-delta">${fPct(d.fat_bruto?(d.deducao+d.csp+d.cmv+d.cf+d.desp_fin)/d.fat_bruto:0)} da receita</div></div>
     <div class="stat"><div class="stat-label">Resultado Líquido</div><div class="stat-value ${d.res_liq>=0?'g':'r'}">${fBRL(d.res_liq)}</div><div class="stat-delta">${dO?`${dO>=0?'▲':'▼'} ${Math.abs(dO)}% vs anterior`:'—'}</div></div>
-    <div class="stat"><div class="stat-label">Lucro Líquido</div><div class="stat-value ${d.res_liq>=0?'g':'r'}">${fPct(d.receita?d.res_liq/d.receita:0)}</div><div class="stat-delta">${fBRL(d.res_liq)}</div></div>
+    <div class="stat"><div class="stat-label">Lucro Líquido</div><div class="stat-value ${d.res_liq>=0?'g':'r'}">${fPct(d.fat_bruto?d.res_liq/d.fat_bruto:0)}</div><div class="stat-delta">${fBRL(d.res_liq)}</div></div>
   `;
 
   // Gráfico evolução — delegado para renderGraficoEvolucao (respeita CHART_PERIOD)
@@ -2459,14 +2459,18 @@ function renderDashboard() {
     : CACHE.unidades;
 
   const rank = unidadesRank
-    .map(u => ({ u, d: calcDRE(CACHE.lancamentos.filter(l=>l.unidade_id===u.id&&l.data.startsWith(mes))) }))
-    .sort((a,b) => b.d.receita - a.d.receita); // ordena por RECEITA
+    .map(u => ({ u, d: calcDRE(CACHE.lancamentos.filter(l =>
+      l.unidade_id===u.id && l.data.startsWith(mes) &&
+      !l.transferencia_id &&
+      !(l.cat_nome && l.cat_nome.toLowerCase().includes('transfer'))
+    ))}))
+    .sort((a,b) => b.d.fat_bruto - a.d.fat_bruto);
 
-  const maxRec = Math.max(...rank.map(r => r.d.receita), 1);
+  const maxRec = Math.max(...rank.map(r => r.d.fat_bruto), 1);
 
   document.getElementById('rank-list').innerHTML = rank.map((r,i) => {
-    const pctRec  = Math.min(100,(r.d.receita/maxRec)*100).toFixed(0);
-    const pctLiq  = r.d.receita > 0 ? (r.d.res_liq/r.d.receita*100) : 0;
+    const pctRec  = Math.min(100,(r.d.fat_bruto/maxRec)*100).toFixed(0);
+    const pctLiq  = r.d.fat_bruto > 0 ? (r.d.res_liq/r.d.fat_bruto*100) : 0;
     const corLiq  = pctLiq >= 10 ? 'var(--g1)' : pctLiq >= 0 ? 'var(--a1)' : 'var(--r1)';
     const medalha = i===0 ? '🥇' : i===1 ? '🥈' : i===2 ? '🥉' : `${i+1}`;
     return `<div class="rank-row">
@@ -2477,7 +2481,7 @@ function renderDashboard() {
         <div class="rank-bar-bg" style="margin-top:4px"><div class="rank-bar-fill" style="width:${pctRec}%;background:var(--g1)"></div></div>
       </div>
       <div style="text-align:right;min-width:90px">
-        <div class="rank-value tx-e" style="font-size:13px">${fBRL(r.d.receita)}</div>
+        <div class="rank-value tx-e" style="font-size:13px">${fBRL(r.d.fat_bruto)}</div>
         <div style="font-size:11px;font-weight:600;color:${corLiq};margin-top:2px">${pctLiq>=0?'+':''}${pctLiq.toFixed(1)}% liq.</div>
       </div>
     </div>`;
