@@ -1927,7 +1927,7 @@ function calcSaudeFinanceira(uid, mes) {
   // ── COMISSÃO BARBEIROS ──────────────────────────────────────
   // grupo custo_variavel + "comiss" no nome, saídas
   const comissao_val = soma(l =>
-    l.tipo==='S' && l.grupo==='custo_variavel' &&
+    l.tipo==='S' && (l.grupo==='custo_variavel'||l.grupo==='csp'||l.grupo==='cmv'||l.grupo==='deducao') &&
     l.cat_nome && l.cat_nome.toLowerCase().includes('comiss'));
 
   // ── CMV ─────────────────────────────────────────────────────
@@ -1946,18 +1946,18 @@ function calcSaudeFinanceira(uid, mes) {
   // grupo custo_variavel excluindo comissão, CMV e taxas
   // qualquer nova categoria no grupo entra automaticamente aqui
   const outros_cv_val = soma(l =>
-    l.tipo==='S' && l.grupo==='custo_variavel' &&
+    l.tipo==='S' && (l.grupo==='custo_variavel'||l.grupo==='csp'||l.grupo==='cmv'||l.grupo==='deducao') &&
     !l.cat_nome?.toLowerCase().includes('comiss') &&
     l.cat_nome?.toLowerCase() !== 'insumos/produtos' &&
     !l.cat_nome?.toLowerCase().includes('taxa'));
 
   // ── CUSTOS FIXOS ─────────────────────────────────────────────
   // tudo do grupo custo_fixo, saídas
-  const cf_val = soma(l => l.grupo==='custo_fixo' && l.tipo==='S');
+  const cf_val = soma(l => (l.grupo==='custo_fixo'||l.grupo==='despesa_operacional') && l.tipo==='S');
 
   // ── NÃO OPERACIONAIS ─────────────────────────────────────────
-  const nop_e_val = soma(l => l.grupo==='nao_operacional' && l.tipo==='E');
-  const nop_s_val = soma(l => l.grupo==='nao_operacional' && l.tipo==='S');
+  const nop_e_val = soma(l => l.grupo==='resultado_financeiro' && l.tipo==='E');
+  const nop_s_val = soma(l => l.grupo==='resultado_financeiro' && l.tipo==='S');
   const nop_liq   = nop_s_val - nop_e_val; // positivo = mais saídas que entradas
 
   // ── TOTAIS ───────────────────────────────────────────────────
@@ -2290,11 +2290,19 @@ const PAGE_RENDERS = {
     const sel = document.getElementById('fil-cat');
     if (sel) {
       sel.innerHTML = '<option value="">Todas as categorias</option><option value="__sem__">Sem categoria</option>';
-      ['receita','custo_variavel','custo_fixo','nao_operacional'].forEach(g => {
+      const gruposLabel = {
+        receita: 'Receitas',
+        deducao: 'Deduções',
+        csp: 'CSP — Custo do Serviço',
+        cmv: 'CMV — Custo da Mercadoria',
+        despesa_operacional: 'Despesas Operacionais',
+        resultado_financeiro: 'Resultado Financeiro',
+      };
+      Object.entries(gruposLabel).forEach(([g, label]) => {
         const cats = CACHE.categorias.filter(c => c.grupo === g);
         if (!cats.length) return;
         const og = document.createElement('optgroup');
-        og.label = {receita:'Receitas',custo_variavel:'Custos Variáveis',custo_fixo:'Custos Fixos',nao_operacional:'Não Operacionais'}[g];
+        og.label = label;
         cats.forEach(c => { const o = document.createElement('option'); o.value=c.id; o.textContent=c.nome; og.appendChild(o); });
         sel.appendChild(og);
       });
@@ -2501,7 +2509,7 @@ function calcDadosMeta(uid, mes) {
   if (orcItens.length) {
     const cfOrc = orcItens.reduce((s,i) => s + parseFloat(i.valor||0), 0);
     const receita = list.filter(l=>l.grupo==='receita'&&l.tipo==='E').reduce((s,l)=>s+parseFloat(l.valor||0),0);
-    const nop = list.filter(l=>l.grupo==='nao_operacional'&&l.tipo==='S').reduce((s,l)=>s+parseFloat(l.valor||0),0);
+    const nop = list.filter(l=>l.grupo==='resultado_financeiro'&&l.tipo==='S').reduce((s,l)=>s+parseFloat(l.valor||0),0);
     const cv = receita * (getCVTotalPct()/100);
     const pe = calcPE(cfOrc);
     return {
