@@ -1951,11 +1951,13 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
 /* ===== CONTAS A PAGAR / RECEBER ===== */
 .cp-wrap{overflow:auto;max-height:calc(100vh - 430px);min-height:200px;border:1px solid var(--border);border-radius:var(--radius)}
 .cp-table{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px}
-.cp-table thead th{position:sticky;top:0;z-index:2;background:var(--bg2);padding:8px 10px;text-align:right;font-weight:500;color:var(--text2);border-bottom:1px solid var(--border);white-space:nowrap}
+.cp-table thead th{position:sticky;top:0;z-index:2;background:var(--bg2);padding:8px 6px;text-align:right;font-weight:500;color:var(--text2);border-bottom:1px solid var(--border);white-space:nowrap}
 .cp-table thead th.l{text-align:left}
-.cp-table td{padding:6px 10px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap}
+.cp-table td{padding:6px 6px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap}
 .cp-table td.l{text-align:left}
-.cp-table td.wrap{white-space:normal;min-width:160px}
+.cp-table td.wrap{white-space:normal;min-width:100px;line-height:1.3}
+.cp-table .btn.sm{padding:4px 7px;font-size:12px}
+.cp-table td.c,.cp-table thead th.c{text-align:center}
 .cp-table tbody tr:hover td{background:var(--bg2)}
 .cp-table tr.hoje td{background:rgba(29,158,117,.12);font-weight:600}
 .cp-table tr.fds td{color:var(--text3)}
@@ -7518,16 +7520,16 @@ function cpRenderLista() {
       : `<button class="btn sm" onclick="cpReativar(${t.id})">Reativar</button>`;
     return `<tr>
       <td class="l">${fDate(t.vencimento)}</td>
-      <td class="l wrap">${cpEsc(t.descricao)}${t.origem === 'orcamento' ? ' <span class="badge gr" title="Gerado do Orçamento/PE">orç.</span>' : ''}</td>
+      <td class="l wrap" style="min-width:140px">${cpEsc(t.descricao)}${t.origem === 'orcamento' ? ' <span class="badge gr" title="Gerado do Orçamento/PE">orç.</span>' : ''}</td>
       <td class="l">${cpEsc(u ? u.nome : '—')}</td>
-      <td class="l">${t.cat_nome ? cpEsc(t.cat_nome) : '<span class="badge a">sem categoria</span>'}</td>
+      <td class="l wrap">${t.cat_nome ? cpEsc(t.cat_nome) : '<span class="badge a">sem categoria</span>'}</td>
       <td class="${receber ? 'tx-e' : 'tx-s'}">${fBRL(t.valor)}</td>
       <td class="l">${badge}</td>
-      <td>${cpBotaoAnexo(t.id, 'doc')}</td><td>${cpBotaoAnexo(t.id, 'comp')}</td>
+      <td class="c">${cpBotaoAnexo(t.id, 'doc')}</td><td class="c">${cpBotaoAnexo(t.id, 'comp')}</td>
       <td style="text-align:right">${acoes}</td></tr>`;
   }).join('');
   corpo.innerHTML = `<div class="cp-wrap"><table class="cp-table">
-    <thead><tr><th class="l">Vencimento</th><th class="l">Descrição</th><th class="l">Unidade</th><th class="l">Categoria</th><th>Valor</th><th class="l">Situação</th><th>Boleto / NF</th><th>Comprovante</th><th></th></tr></thead>
+    <thead><tr><th class="l">Vencimento</th><th class="l">Descrição</th><th class="l">Unidade</th><th class="l">Categoria</th><th>Valor</th><th class="l">Situação</th><th class="c">Boleto / NF</th><th class="c">Comprovante</th><th></th></tr></thead>
     <tbody>${linhas}</tbody>
     <tfoot><tr><td class="l" colspan="4">${lista.length} título${lista.length > 1 ? 's' : ''}</td><td>${fBRL(soma(lista))}</td><td colspan="4"></td></tr></tfoot>
   </table></div>`;
