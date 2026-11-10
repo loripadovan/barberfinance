@@ -1600,12 +1600,8 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
       <div class="field-group" id="cp-f-rep-grp"><label>Repetir por quantos meses</label><input type="number" min="1" max="36" value="1" id="cp-f-rep"></div>
       <div class="field-group"><label>Observação</label><input type="text" id="cp-f-obs"></div>
     </div>
-    <div class="field-row" id="cp-f-ax-row">
-      <div class="field-group"><label>Anexar (opcional)</label>
-        <select id="cp-f-ax-tipo"><option value="boleto">Boleto</option><option value="nf">Nota fiscal</option></select></div>
-      <div class="field-group"><label>Arquivo (PDF ou foto)</label>
-        <input type="file" id="cp-f-ax-file" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,image/*,application/pdf"></div>
-    </div>
+    <div class="field-group" id="cp-f-ax-row"><label>Boleto / NF (opcional — até 2 arquivos, PDF ou foto)</label>
+      <input type="file" id="cp-f-ax-file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,image/*,application/pdf"></div>
     <div class="modal-actions">
       <button class="btn" onclick="fecharModal('modal-cp')">Cancelar</button>
       <button class="btn primary" onclick="cpSalvar()">Salvar</button>
@@ -7514,14 +7510,12 @@ function cpRenderLista() {
       : s === 'aberto' ? (dias === 0 ? '<span class="badge a">Vence hoje</span>' : `<span class="badge b">Vence em ${dias} d</span>`)
       : s === 'pago' ? (t.lancamento_id ? `<span class="badge g">${receber ? 'Recebido' : 'Pago'} ${fDate(t.pago_em)}</span>` : '<span class="badge a">Baixa sem lançamento</span>')
       : '<span class="badge gr">Cancelado</span>';
-    const nAx = cpAnexosDe(t.id).length;
-    const clip = `<button class="btn sm" onclick="cpAbrirAnexos(${t.id})" title="Boleto, nota fiscal e comprovante"><i class="ti ti-paperclip"></i>${nAx ? ' ' + nAx : ''}</button>`;
-    const acoes = clip + ' ' + ((s === 'aberto' || s === 'vencido')
+    const acoes = (s === 'aberto' || s === 'vencido')
       ? `<button class="btn sm primary" onclick="cpAbrirBaixa(${t.id})">${receber ? 'Receber' : 'Baixar'}</button>
          <button class="btn sm" onclick="cpEditar(${t.id})" title="Editar"><i class="ti ti-edit"></i></button>
          <button class="btn sm danger" onclick="cpExcluir(${t.id})" title="Excluir"><i class="ti ti-trash"></i></button>`
       : s === 'pago' ? `<button class="btn sm" onclick="cpReabrir(${t.id})">Reabrir</button>`
-      : `<button class="btn sm" onclick="cpReativar(${t.id})">Reativar</button>`);
+      : `<button class="btn sm" onclick="cpReativar(${t.id})">Reativar</button>`;
     return `<tr>
       <td class="l">${fDate(t.vencimento)}</td>
       <td class="l wrap">${cpEsc(t.descricao)}${t.origem === 'orcamento' ? ' <span class="badge gr" title="Gerado do Orçamento/PE">orç.</span>' : ''}</td>
@@ -7529,12 +7523,13 @@ function cpRenderLista() {
       <td class="l">${t.cat_nome ? cpEsc(t.cat_nome) : '<span class="badge a">sem categoria</span>'}</td>
       <td class="${receber ? 'tx-e' : 'tx-s'}">${fBRL(t.valor)}</td>
       <td class="l">${badge}</td>
+      <td>${cpBotaoAnexo(t.id, 'doc')}</td><td>${cpBotaoAnexo(t.id, 'comp')}</td>
       <td style="text-align:right">${acoes}</td></tr>`;
   }).join('');
   corpo.innerHTML = `<div class="cp-wrap"><table class="cp-table">
-    <thead><tr><th class="l">Vencimento</th><th class="l">Descrição</th><th class="l">Unidade</th><th class="l">Categoria</th><th>Valor</th><th class="l">Situação</th><th></th></tr></thead>
+    <thead><tr><th class="l">Vencimento</th><th class="l">Descrição</th><th class="l">Unidade</th><th class="l">Categoria</th><th>Valor</th><th class="l">Situação</th><th>Boleto / NF</th><th>Comprovante</th><th></th></tr></thead>
     <tbody>${linhas}</tbody>
-    <tfoot><tr><td class="l" colspan="4">${lista.length} título${lista.length > 1 ? 's' : ''}</td><td>${fBRL(soma(lista))}</td><td colspan="2"></td></tr></tfoot>
+    <tfoot><tr><td class="l" colspan="4">${lista.length} título${lista.length > 1 ? 's' : ''}</td><td>${fBRL(soma(lista))}</td><td colspan="4"></td></tr></tfoot>
   </table></div>`;
 }
 
@@ -7622,10 +7617,11 @@ async function cpSalvar() {
   if (!(valor > 0)) { alert('Informe um valor maior que zero.'); return; }
   if (!venc) { alert('Informe o vencimento.'); return; }
   const campos = { unidade_id:uid, descricao:desc, cat_id:catId, cat_nome:cat ? cat.nome : null, grupo:cat ? cat.grupo : null, valor, vencimento:venc, observacao:obs || null };
-  const arq = CP.editId ? null : cpArquivoDoInput('cp-f-ax-file');
+  const arqs = CP.editId ? [] : cpArquivosDoInput('cp-f-ax-file');
   const nRep = CP.editId ? 1 : Math.max(1, Math.min(36, parseInt(document.getElementById('cp-f-rep').value) || 1));
-  if (arq && !arq.v.ok) { alert(arq.v.msg); return; }
-  if (arq && nRep > 1) { alert('O anexo só pode ser enviado quando o título não se repete. Salve e anexe depois pelo clipe de cada título.'); return; }
+  if (arqs.length > CP_LIMITE.doc) { alert(`Boleto/NF aceita no máximo ${CP_LIMITE.doc} arquivos.`); return; }
+  const invalido = arqs.find(a => !a.v.ok); if (invalido) { alert(invalido.v.msg); return; }
+  if (arqs.length && nRep > 1) { alert('O anexo só pode ser enviado quando o título não se repete. Salve e anexe depois, pelo botão Boleto/NF de cada título.'); return; }
   let novoTit = null;
   showLoading('Salvando...');
   if (CP.editId) {
@@ -7640,10 +7636,11 @@ async function cpSalvar() {
     CACHE.titulos.push(...(data || [])); novoTit = (data || [])[0] || null;
   }
   fecharModal('modal-cp'); cpPopularMeses(); cpAtualizarPill(); cpRender();
-  if (arq && novoTit) {
-    showLoading('Anexando documento...');
-    const r = await cpAnexar(novoTit, document.getElementById('cp-f-ax-tipo').value, arq.file); hideLoading();
-    if (r.ok) cpRender(); else showAlert('cp-alert', 'warn', `Título criado, mas o documento não foi anexado: ${cpEsc(r.msg)} Anexe pelo clipe da linha.`);
+  if (arqs.length && novoTit) {
+    showLoading('Anexando documentos...'); const falhas = [];
+    for (const a of arqs) { const r = await cpAnexar(novoTit, 'documento', a.file); if (!r.ok) falhas.push(r.msg); }
+    hideLoading(); cpRender();
+    if (falhas.length) showAlert('cp-alert', 'warn', `Título criado, mas ${falhas.length} documento(s) não foram anexados: ${cpEsc(falhas[0])} Use o botão Boleto/NF da linha.`);
   }
 }
 
@@ -7708,8 +7705,9 @@ function cpAbrirBaixa(id) {
   const caixas = CACHE.contas.filter(c => c.unidade_id === t.unidade_id && c.tipo === 'caixa');
   document.getElementById('cp-baixa-corpo').innerHTML = `
     <div class="alert info" style="margin-bottom:10px"><i class="ti ti-receipt-2"></i><span><strong>${cpEsc(t.descricao)}</strong> · ${cpEsc(u ? u.nome : '')} · ${cpBRL(t.valor)} · vence ${fDate(t.vencimento)}</span></div>
-    <div class="cp-sec">Comprovante de pagamento (opcional — PDF ou foto, anexado ao concluir a baixa)</div>
-    <input type="file" id="cp-bx-comp" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,image/*,application/pdf">
+    <div class="cp-sec">Comprovante de pagamento (opcional — 1 arquivo, PDF ou foto; anexado ao concluir a baixa)</div>
+    ${cpAnexosDe(t.id).some(a => a.tipo === 'comprovante') ? '<p style="font-size:12px;color:var(--text3)">Este título já tem comprovante anexado.</p>'
+      : '<input type="file" id="cp-bx-comp" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,image/*,application/pdf">'}
     <div class="cp-sec">1) Já está no extrato — vincular ao lançamento</div>
     ${lista.length ? (exatos.length ? '' : '<p style="font-size:12px;color:var(--text3);margin-bottom:6px">Nenhum lançamento com o mesmo valor na janela. Mostrando valores próximos (juros/multa):</p>') + lista.map((l, i) => cpHtmlCand(l, exatos.length && i === 0)).join('')
       : '<p style="font-size:12px;color:var(--text3)">Nenhum lançamento compatível ainda. Importe o OFX da conta e volte, ou registre o pagamento em caixa abaixo.</p>'}
@@ -7807,15 +7805,28 @@ function cpGerarRecorrentes() {
 
 
 // ============================================================
-//  ANEXOS: boleto, nota fiscal e comprovante (PDF ou imagem) — arquivos no Supabase Storage
+//  ANEXOS — dois botões por título:
+//    Boleto / NF ............ até 2 arquivos   (tipo 'documento'; 'boleto' e 'nf' antigos também contam aqui)
+//    Comprovante de pgto .... 1 arquivo        (tipo 'comprovante')
+//  PDF ou imagem, no Supabase Storage (bucket privado). O limite também é garantido no banco (SQL 18).
 // ============================================================
 const CP_BUCKET = 'titulos-anexos';
 const CP_MAX_BYTES = 10 * 1024 * 1024;
+const CP_LIMITE = { doc: 2, comp: 1 };
+const CP_GRUPO_NOME = { doc: 'Boleto / NF', comp: 'Comprovante de pagamento' };
 const CP_EXT_OK = { pdf:'application/pdf', jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', webp:'image/webp', heic:'image/heic', heif:'image/heif' };
-const CP_AX_TIPOS = { boleto:'Boleto', nf:'Nota fiscal', comprovante:'Comprovante de pagamento' };
+const cpGrupoDoTipo = tipo => tipo === 'comprovante' ? 'comp' : 'doc';
 const cpAnexosDe = id => (CACHE.anexos || []).filter(a => a.titulo_id === id);
+const cpAnexosGrupo = (id, g) => cpAnexosDe(id).filter(a => cpGrupoDoTipo(a.tipo) === g);
 const cpSlug = s => (s || 'arquivo').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 80) || 'arquivo';
 const cpTam = n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+
+function cpBotaoAnexo(id, g) {
+  const n = cpAnexosGrupo(id, g).length, lim = CP_LIMITE[g], tip = `${CP_GRUPO_NOME[g]} (${n} de ${lim})`;
+  return n
+    ? `<button class="btn sm" style="color:var(--g1);border-color:var(--g1)" onclick="cpAbrirAnexos(${id}, '${g}')" title="${tip}"><i class="ti ti-paperclip"></i> ${n}/${lim}</button>`
+    : `<button class="btn sm" onclick="cpAbrirAnexos(${id}, '${g}')" title="${tip}"><i class="ti ti-plus"></i> Anexar</button>`;
+}
 
 async function cpLoadAnexos() {
   CACHE.anexos = []; CP.anexosDisponivel = true;
@@ -7836,15 +7847,17 @@ function cpValidarArquivo(f) {
   const ext = (f.name.split('.').pop() || '').toLowerCase();
   let mime = CP_EXT_OK[ext];
   if (!mime && Object.values(CP_EXT_OK).includes(f.type)) mime = f.type;
-  if (!mime) return { ok:false, msg:'Formato não aceito. Use PDF, JPG, PNG ou WEBP.' };
+  if (!mime) return { ok:false, msg:`Formato não aceito (${f.name}). Use PDF, JPG, PNG ou WEBP.` };
   if (!(f.size > 0)) return { ok:false, msg:'O arquivo está vazio.' };
   if (f.size > 40 * 1024 * 1024) return { ok:false, msg:'Arquivo muito grande (máximo 10 MB).' };
   return { ok:true, mime };
 }
-function cpArquivoDoInput(id) {
-  const el = document.getElementById(id), f = el && el.files && el.files[0];
-  return f ? { file:f, v:cpValidarArquivo(f) } : null;
+function cpArquivosDoInput(id) {
+  const el = document.getElementById(id);
+  return el && el.files ? [...el.files].map(f => ({ file:f, v:cpValidarArquivo(f) })) : [];
 }
+const cpArquivoDoInput = id => cpArquivosDoInput(id)[0] || null;
+
 // fotos grandes são reduzidas (lado maior 1800 px, JPEG): o comprovante continua legível e o armazenamento rende muito mais
 async function cpComprimirImagem(f, mime) {
   if (!/^image\/(jpeg|png|webp)$/.test(mime) || f.size < 800 * 1024) return { blob:f, mime, nome:f.name };
@@ -7858,12 +7871,16 @@ async function cpComprimirImagem(f, mime) {
   } catch (e) { /* mantém o original */ }
   return { blob:f, mime, nome:f.name };
 }
+
+// tipo: 'documento' (Boleto/NF) ou 'comprovante'
 async function cpAnexar(t, tipo, file) {
   if (!CP.anexosDisponivel) return { ok:false, msg:'Rode o SQL 18_anexos_titulos.sql no Supabase para habilitar anexos.' };
+  const g = cpGrupoDoTipo(tipo);
+  if (cpAnexosGrupo(t.id, g).length >= CP_LIMITE[g]) return { ok:false, msg:`${CP_GRUPO_NOME[g]}: limite de ${CP_LIMITE[g]} arquivo${CP_LIMITE[g] > 1 ? 's' : ''} atingido. Exclua um para anexar outro.` };
   const v = cpValidarArquivo(file); if (!v.ok) return v;
   const c = await cpComprimirImagem(file, v.mime);
   if (c.blob.size > CP_MAX_BYTES) return { ok:false, msg:'Arquivo maior que 10 MB mesmo após reduzir.' };
-  const caminho = `${t.unidade_id}/${t.id}/${tipo}-${Date.now()}-${cpSlug(c.nome)}`;
+  const caminho = `${t.unidade_id}/${t.id}/${tipo}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${cpSlug(c.nome)}`;
   const up = await db.storage.from(CP_BUCKET).upload(caminho, c.blob, { contentType:c.mime, upsert:false });
   if (up.error) return { ok:false, msg:'Falha no envio: ' + (up.error.message || up.error) };
   const ins = await db.from('titulo_anexos').insert({ titulo_id:t.id, tipo, nome_arquivo:c.nome, caminho, mime:c.mime, tamanho:c.blob.size }).select().single();
@@ -7874,7 +7891,7 @@ async function cpAnexar(t, tipo, file) {
 async function cpAnexarPosBaixa(t, arq) {
   if (!arq) return;
   showLoading('Anexando comprovante...'); const r = await cpAnexar(t, 'comprovante', arq.file); hideLoading();
-  if (r.ok) cpRender(); else showAlert('cp-alert', 'warn', `Baixa registrada, mas o comprovante não foi anexado: ${cpEsc(r.msg)} Anexe pelo clipe da linha.`);
+  if (r.ok) cpRender(); else showAlert('cp-alert', 'warn', `Baixa registrada, mas o comprovante não foi anexado: ${cpEsc(r.msg)} Use o botão Comprovante da linha.`);
 }
 async function cpRemoverArquivosDoTitulo(id) {
   const ax = cpAnexosDe(id); if (!ax.length) return;
@@ -7883,51 +7900,45 @@ async function cpRemoverArquivosDoTitulo(id) {
   CACHE.anexos = CACHE.anexos.filter(a => a.titulo_id !== id);          // as linhas saem junto com o título (on delete cascade)
 }
 
-// ---------- tela de documentos do título ----------
-function cpAbrirAnexos(id) { CP.anexoTituloId = id; cpRenderAnexos(); abrirModal('modal-cp-anexos'); }
+// ---------- janela de documentos (um dos dois grupos) ----------
+function cpAbrirAnexos(id, g) { CP.anexoTituloId = id; CP.anexoGrupo = g || 'doc'; cpRenderAnexos(); abrirModal('modal-cp-anexos'); }
 function cpRenderAnexos() {
   const t = cpTitulos().find(x => x.id === CP.anexoTituloId); if (!t) return;
-  const u = CACHE.unidades.find(x => x.id === t.unidade_id);
-  document.getElementById('cp-ax-titulo').textContent = 'Documentos — ' + t.descricao;
+  const g = CP.anexoGrupo, lim = CP_LIMITE[g], u = CACHE.unidades.find(x => x.id === t.unidade_id);
+  document.getElementById('cp-ax-titulo').textContent = `${CP_GRUPO_NOME[g]} — ${t.descricao}`;
   const corpo = document.getElementById('cp-ax-corpo');
   if (!CP.anexosDisponivel) {
     corpo.innerHTML = '<div class="alert warn"><i class="ti ti-alert-triangle"></i><span>Rode o arquivo <code>18_anexos_titulos.sql</code> no Supabase para habilitar anexos.</span></div>'; return;
   }
-  const lista = cpAnexosDe(t.id).sort((a, b) => a.id - b.id);
-  const grupo = tipo => {
-    const it = lista.filter(a => a.tipo === tipo); if (!it.length) return '';
-    return `<div class="cp-sec">${CP_AX_TIPOS[tipo]}</div>` + it.map(a => `<div class="cp-ax-item">
+  const lista = cpAnexosGrupo(t.id, g).sort((a, b) => a.id - b.id), livres = Math.max(0, lim - lista.length);
+  const itens = lista.map(a => `<div class="cp-ax-item">
       <span style="min-width:0"><i class="ti ti-${/pdf/.test(a.mime || '') ? 'file-type-pdf' : 'photo'}"></i> <strong style="word-break:break-all">${cpEsc(a.nome_arquivo)}</strong>
         <span class="cp-nil"> · ${cpTam(a.tamanho || 0)}${a.criado_em ? ' · ' + fDate(a.criado_em.slice(0, 10)) : ''}</span></span>
       <span style="white-space:nowrap"><button class="btn sm" onclick="cpAbrirAnexo(${a.id})">Abrir</button>
         <button class="btn sm" onclick="cpAbrirAnexo(${a.id}, true)">Baixar</button>
         <button class="btn sm danger" onclick="cpExcluirAnexo(${a.id})" title="Excluir"><i class="ti ti-trash"></i></button></span></div>`).join('');
-  };
-  const vazio = lista.length ? '' : '<p style="font-size:12.5px;color:var(--text3)">Nenhum documento anexado ainda.</p>';
   const aceita = '.pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,image/*,application/pdf';
   corpo.innerHTML = `
-    <div class="alert info" style="margin-bottom:6px"><i class="ti ti-receipt-2"></i><span><strong>${cpEsc(t.descricao)}</strong> · ${cpEsc(u ? u.nome : '')} · ${cpBRL(t.valor)} · vence ${fDate(t.vencimento)}</span></div>
-    ${vazio}${grupo('boleto')}${grupo('nf')}${grupo('comprovante')}
-    <div class="cp-sec">Anexar boleto ou nota fiscal</div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <select id="cp-ax-doc-tipo" style="width:140px"><option value="boleto">Boleto</option><option value="nf">Nota fiscal</option></select>
-      <input type="file" id="cp-ax-doc" accept="${aceita}" style="flex:1;min-width:180px">
-      <button class="btn primary" onclick="cpEnviarAnexo('', 'cp-ax-doc')">Enviar</button></div>
-    <div class="cp-sec">Anexar comprovante de pagamento</div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <input type="file" id="cp-ax-comp" accept="${aceita}" style="flex:1;min-width:180px">
-      <button class="btn primary" onclick="cpEnviarAnexo('comprovante', 'cp-ax-comp')">Enviar</button></div>
-    <p style="font-size:11px;color:var(--text3);margin-top:10px">PDF, JPG, PNG ou WEBP, até 10 MB. Fotos grandes são reduzidas automaticamente.</p>`;
+    <div class="alert info" style="margin-bottom:8px"><i class="ti ti-receipt-2"></i><span><strong>${cpEsc(t.descricao)}</strong> · ${cpEsc(u ? u.nome : '')} · ${cpBRL(t.valor)} · vence ${fDate(t.vencimento)}</span></div>
+    <div class="cp-sec">${lista.length} de ${lim} arquivo${lim > 1 ? 's' : ''} anexado${lista.length === 1 ? '' : 's'}</div>
+    ${itens || '<p style="font-size:12.5px;color:var(--text3)">Nenhum arquivo anexado ainda.</p>'}
+    ${livres ? `<div class="cp-sec">Anexar ${g === 'doc' ? 'boleto ou nota fiscal' : 'comprovante de pagamento'}${livres > 1 ? ` (pode escolher até ${livres} arquivos de uma vez)` : ''}</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="file" id="cp-ax-file" accept="${aceita}" ${livres > 1 ? 'multiple' : ''} style="flex:1;min-width:200px">
+        <button class="btn primary" onclick="cpEnviarAnexos()">Enviar</button></div>
+      <p style="font-size:11px;color:var(--text3);margin-top:8px">PDF, JPG, PNG ou WEBP, até 10 MB cada. Fotos grandes são reduzidas automaticamente.</p>`
+      : `<div class="alert warn" style="margin-top:10px"><i class="ti ti-info-circle"></i><span>Limite de ${lim} arquivo${lim > 1 ? 's' : ''} atingido. Exclua um para anexar outro.</span></div>`}`;
 }
-async function cpEnviarAnexo(tipoFixo, inputId) {
+async function cpEnviarAnexos() {
   const t = cpTitulos().find(x => x.id === CP.anexoTituloId); if (!t) return;
-  const tipo = tipoFixo || document.getElementById('cp-ax-doc-tipo').value;
-  const arq = cpArquivoDoInput(inputId);
-  if (!arq) { alert('Escolha um arquivo.'); return; }
-  if (!arq.v.ok) { alert(arq.v.msg); return; }
-  showLoading('Enviando...'); const r = await cpAnexar(t, tipo, arq.file); hideLoading();
-  if (!r.ok) { alert(r.msg); return; }
-  cpRenderAnexos(); cpRender();
+  const g = CP.anexoGrupo, livres = CP_LIMITE[g] - cpAnexosGrupo(t.id, g).length, arqs = cpArquivosDoInput('cp-ax-file');
+  if (!arqs.length) { alert('Escolha um arquivo.'); return; }
+  if (arqs.length > livres) { alert(`Só ${livres === 1 ? 'cabe 1 arquivo' : 'cabem ' + livres + ' arquivos'} aqui. ${arqs.length > 1 ? 'Escolha menos arquivos ou ' : ''}Exclua um existente para liberar espaço.`); return; }
+  const inv = arqs.find(a => !a.v.ok); if (inv) { alert(inv.v.msg); return; }
+  showLoading('Enviando...'); const falhas = [];
+  for (const a of arqs) { const r = await cpAnexar(t, g === 'comp' ? 'comprovante' : 'documento', a.file); if (!r.ok) falhas.push(r.msg); }
+  hideLoading(); cpRenderAnexos(); cpRender();
+  if (falhas.length) alert(falhas.join('\n'));
 }
 async function cpAbrirAnexo(aid, baixar) {
   const a = (CACHE.anexos || []).find(x => x.id === aid); if (!a) return;
