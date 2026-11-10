@@ -337,6 +337,7 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
     <div class="nav-item" onclick="showPage('massa')"><i class="ti ti-tags"></i> Categorizar <span class="nav-badge red" id="pill-sem">0</span></div>
     <div class="nav-item" onclick="showPage('lancamentos')"><i class="ti ti-list"></i> Lançamentos</div>
     <div class="nav-item" onclick="showPage('dre')"><i class="ti ti-file-analytics"></i> DRE</div>
+    <div class="nav-item" onclick="showPage('contaspagar')"><i class="ti ti-receipt-2"></i> Contas a Pagar <span class="nav-badge red" id="pill-cp" style="display:none">0</span></div>
     <div class="nav-item" onclick="showPage('fluxo')"><i class="ti ti-chart-bar"></i> Fluxo de Caixa</div>
     <div class="nav-item" onclick="showPage('fluxoprojetado')"><i class="ti ti-table-column"></i> Fluxo Projetado</div>
     <div class="nav-sec">Cadastros</div>
@@ -1103,6 +1104,40 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
     </div>
 
     <!-- ==================== RELATÓRIOS ==================== -->
+    <!-- ===== CONTAS A PAGAR / RECEBER ===== -->
+    <div id="page-contaspagar" class="page">
+      <div class="topbar">
+        <div><div class="topbar-title">Contas a Pagar e Receber</div></div>
+        <div class="topbar-right">
+          <button class="btn" onclick="cpGerarRecorrentes()"><i class="ti ti-repeat"></i> Gerar do Orçamento</button>
+          <button class="btn" onclick="cpAbrirAuto()"><i class="ti ti-link"></i> Conciliar extrato</button>
+          <button class="btn primary" onclick="cpNovo()"><i class="ti ti-plus"></i> Novo título</button>
+        </div>
+      </div>
+      <div class="content">
+        <div id="cp-alert"></div>
+        <div class="tabs" id="cp-tabs">
+          <div class="tab active" data-aba="pagar" onclick="cpTab('pagar')">A Pagar</div>
+          <div class="tab" data-aba="receber" onclick="cpTab('receber')">A Receber</div>
+          <div class="tab" data-aba="fluxo" onclick="cpTab('fluxo')">Fluxo de Caixa</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:1rem">
+          <select id="cp-u" onchange="cpRender()" style="width:170px"></select>
+          <select id="cp-m" onchange="cpRender()" style="width:170px"></select>
+          <select id="cp-st" onchange="cpRender()" style="width:150px">
+            <option value="abertos">Em aberto</option>
+            <option value="vencidos">Vencidos</option>
+            <option value="pagos">Quitados</option>
+            <option value="cancelados">Cancelados</option>
+            <option value="todos">Todos</option>
+          </select>
+          <button class="btn sm" onclick="cpRecarregar()" title="Atualizar"><i class="ti ti-refresh"></i></button>
+        </div>
+        <div class="stat-grid" id="cp-stats"></div>
+        <div id="cp-corpo"></div>
+      </div>
+    </div>
+
     <div id="page-relatorios" class="page">
       <div class="topbar">
         <div><div class="topbar-title">Relatórios</div><div class="topbar-sub">Documentos para compartilhar com gestão e equipe</div></div>
@@ -1546,6 +1581,57 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
   </div>
 </div>
 
+<!-- ===== MODAIS: CONTAS A PAGAR / RECEBER ===== -->
+<div class="modal-overlay" id="modal-cp">
+  <div class="modal">
+    <div class="modal-title" id="cp-modal-title">Novo título</div>
+    <div class="field-row">
+      <div class="field-group"><label>Tipo</label>
+        <select id="cp-f-tipo" onchange="cpPopularCatModal()"><option value="S">A pagar</option><option value="E">A receber</option></select></div>
+      <div class="field-group"><label>Unidade *</label><select id="cp-f-u"></select></div>
+    </div>
+    <div class="field-group"><label>Fornecedor / descrição *</label><input type="text" id="cp-f-desc" placeholder="Ex: Aluguel, Energia, Repasse Clube"></div>
+    <div class="field-group"><label>Categoria</label><select id="cp-f-cat"></select></div>
+    <div class="field-row">
+      <div class="field-group"><label>Valor (R$) *</label><input type="number" step="0.01" min="0.01" id="cp-f-valor"></div>
+      <div class="field-group"><label>Vencimento *</label><input type="date" id="cp-f-venc"></div>
+    </div>
+    <div class="field-row">
+      <div class="field-group" id="cp-f-rep-grp"><label>Repetir por quantos meses</label><input type="number" min="1" max="36" value="1" id="cp-f-rep"></div>
+      <div class="field-group"><label>Observação</label><input type="text" id="cp-f-obs"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharModal('modal-cp')">Cancelar</button>
+      <button class="btn primary" onclick="cpSalvar()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-cp-baixa">
+  <div class="modal" style="width:680px">
+    <div class="modal-title" id="cp-baixa-titulo">Baixar título</div>
+    <div id="cp-baixa-corpo"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-cp-auto">
+  <div class="modal" style="width:820px">
+    <div class="modal-title">Conciliar títulos com o extrato</div>
+    <div id="cp-auto-corpo"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-cp-conf">
+  <div class="modal" style="width:420px">
+    <div class="modal-title" id="cp-conf-titulo">Confirmar</div>
+    <p style="font-size:13px;color:var(--text2);white-space:pre-line" id="cp-conf-msg"></p>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharModal('modal-cp-conf')">Cancelar</button>
+      <button class="btn primary" id="cp-conf-btn">Confirmar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-confirm">
   <div class="modal" style="width:380px">
     <div class="modal-title">Confirmar exclusão</div>
@@ -1841,6 +1927,24 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
 .fp-thead-saldo-acum.cat{position:sticky;left:0;z-index:5;text-align:left;padding:3px 8px;font-size:10px}
 .fp-thead-saldo-acum.pos{color:var(--g1)}
 .fp-thead-saldo-acum.neg{color:var(--r1)}
+/* ===== CONTAS A PAGAR / RECEBER ===== */
+.cp-wrap{overflow:auto;max-height:calc(100vh - 430px);min-height:200px;border:1px solid var(--border);border-radius:var(--radius)}
+.cp-table{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px}
+.cp-table thead th{position:sticky;top:0;z-index:2;background:var(--bg2);padding:8px 10px;text-align:right;font-weight:500;color:var(--text2);border-bottom:1px solid var(--border);white-space:nowrap}
+.cp-table thead th.l{text-align:left}
+.cp-table td{padding:6px 10px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap}
+.cp-table td.l{text-align:left}
+.cp-table td.wrap{white-space:normal;min-width:160px}
+.cp-table tbody tr:hover td{background:var(--bg2)}
+.cp-table tr.hoje td{background:rgba(29,158,117,.12);font-weight:600}
+.cp-table tr.fds td{color:var(--text3)}
+.cp-table tr.neg td.acum{color:var(--r1);font-weight:600}
+.cp-table tfoot td{position:sticky;bottom:0;background:var(--bg2);font-weight:600;border-top:1px solid var(--border)}
+.cp-nil{color:var(--text3)}
+.cp-cand{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;cursor:pointer;font-size:12.5px}
+.cp-cand:hover{background:var(--bg2)}
+.cp-cand input{width:auto;margin-top:3px}
+.cp-sec{font-size:12px;font-weight:600;color:var(--text2);margin:14px 0 6px}
 </style>
 
 <script>
@@ -1859,7 +1963,7 @@ const GRUPOS = {receita:'Receita',deducao:'Dedução',csp:'CSP',cmv:'CMV',despes
 const GCLS   = {receita:'g',deducao:'a',csp:'a',cmv:'a',despesa_operacional:'b',resultado_financeiro:'gr',custo_variavel:'a',custo_fixo:'b',nao_operacional:'gr'};
 
 let db       = null;   // cliente Supabase
-let CACHE    = { unidades:[], categorias:[], regras:[], lancamentos:[], contas:[], orcamentos:[], calManual:[], emprestimos:[], empPagamentos:[] };
+let CACHE    = { unidades:[], categorias:[], regras:[], lancamentos:[], contas:[], orcamentos:[], calManual:[], emprestimos:[], empPagamentos:[], titulos:[] };
 let CFG_META = { m1:5, m2:10, m3:20 };
 let catTabAtivo = 'receita';
 
@@ -2146,6 +2250,7 @@ async function carregarTudo() {
     CACHE.calManual     = cm.data   || [];
     CACHE.emprestimos   = emp.data  || [];
     CACHE.empPagamentos = epag.data || [];
+    await cpLoadTitulos();
     atualizarPillSem();
     populateTodosSelects();
     document.getElementById('sb-status').textContent = `Conectado — ${CACHE.unidades.length} unidades`;
@@ -2316,6 +2421,7 @@ const PAGE_RENDERS = {
   dre:        () => { populateMes('dre-m'); populateU('dre-u','Rede completa'); toggleDreModo(); renderDRE(); },
   fluxo:      () => { populateMes('fc-m'); populateU('fc-u','Rede completa'); renderFluxo(); },
   fluxoprojetado: async () => { await initFluxoProjetado(); },
+  contaspagar: () => cpInit(),
   unidades:   renderUnidades,
   categorias: renderCategorias,
   regras:     renderRegras,
@@ -5562,6 +5668,7 @@ async function renderFluxoProjetado() {
   // Saldo bancário real como ponto de partida
   const contasUnidade = CACHE.contas.filter(c => c.unidade_id == uid);
   const saldoBancarioInicial = contasUnidade.reduce((s, c) => s + calcSaldoConta(c.id, c.saldo_inicial), 0);
+  const saldoInicioMes = cpSaldoAte(uid, mes + '-01'); // saldo no 1º dia do mês (o realizado do mês já entra nos dias)
 
   // Calcular totais por dia
   const saldoDia = Array(diasNoMes+1).fill(0);
@@ -5597,7 +5704,7 @@ async function renderFluxoProjetado() {
   });
 
   // Saldo acumulado — inicia com saldo bancário real
-  let acum = saldoBancarioInicial;
+  let acum = saldoInicioMes;
   for (let d=1; d<=diasNoMes; d++) {
     acum += saldoDia[d];
     saldoAcum[d] = acum;
@@ -7112,6 +7219,543 @@ function fazerLogout() {
 function entrarNoSistema() {
   document.getElementById('login-screen').style.display = 'none';
   document.querySelector('.app').classList.add('show');
+}
+
+// ============================================================
+//  CONTAS A PAGAR / RECEBER — títulos que alimentam o fluxo de caixa
+//  Regras:
+//   • Título em aberto = previsto. Título quitado = já está no extrato (lançamento), nunca conta duas vezes.
+//   • Saldo parte do saldo REAL das contas bancárias no início do mês (saldo_inicial + lançamentos vinculados).
+//   • Título vencido e não pago é projetado para HOJE (ainda vai sair/entrar do caixa).
+// ============================================================
+const CP = { aba:'pagar', disponivel:true, erro:'', hoje:null, baixaId:null, editId:null, props:[] };
+
+// ---------- utilidades ----------
+const cpNorm = s => (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+const cpPad  = n => String(n).padStart(2,'0');
+const cpNum  = v => parseFloat(v||0);
+const cpEsc  = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const cpBRL  = v => (v < 0 ? '-' : '') + fBRL(v);          // fBRL remove o sinal; aqui o negativo fica visível
+const cpTitulos = () => CACHE.titulos || [];
+const cpVinculados = () => new Set(cpTitulos().filter(t => t.lancamento_id).map(t => t.lancamento_id));
+const cpIsTransf = l => !!l.transferencia_id || /transfer/i.test(l.cat_nome || '');
+const cpSemCat = l => !l.cat_id || /n[aã]o identificado/i.test(l.cat_nome || '');
+
+function cpHoje() {
+  if (CP.hoje) return CP.hoje;
+  const d = new Date();
+  return `${d.getFullYear()}-${cpPad(d.getMonth()+1)}-${cpPad(d.getDate())}`;
+}
+function cpParse(s) { const [y,m,d] = s.split('-').map(Number); return Date.UTC(y, m-1, d); }
+function cpDiff(a, b) { return Math.round((cpParse(b) - cpParse(a)) / 86400000); }
+function cpAddDias(s, n) { return new Date(cpParse(s) + n * 86400000).toISOString().slice(0, 10); }
+function cpUltimoDia(ym) { const [y,m] = ym.split('-').map(Number); return new Date(Date.UTC(y, m, 0)).getUTCDate(); }
+function cpAddMes(s, n) {                                   // soma meses mantendo o dia (ajusta p/ fim do mês)
+  const [y,m,d] = s.split('-').map(Number);
+  const t = (m - 1) + n, ny = y + Math.floor(t / 12), nm = ((t % 12) + 12) % 12 + 1;
+  const ym = `${ny}-${cpPad(nm)}`;
+  return `${ym}-${cpPad(Math.min(d, cpUltimoDia(ym)))}`;
+}
+function cpStatus(t, hoje) {
+  hoje = hoje || cpHoje();
+  if (t.status === 'pago') return 'pago';
+  if (t.status === 'cancelado') return 'cancelado';
+  return t.vencimento < hoje ? 'vencido' : 'aberto';
+}
+
+// ---------- carga ----------
+async function cpLoadTitulos() {
+  CACHE.titulos = [];
+  if (!db) return;
+  try {
+    const PAGE = 1000; let from = 0, all = [];
+    while (true) {
+      const { data, error } = await db.from('titulos').select('*')
+        .order('vencimento', { ascending: true }).order('id', { ascending: true }).range(from, from + PAGE - 1);
+      if (error) { CP.disponivel = false; CP.erro = error.message || String(error); return; }
+      if (!data || !data.length) break;
+      all = all.concat(data);
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+    CP.disponivel = true; CP.erro = '';
+    CACHE.titulos = all;
+  } catch (e) { CP.disponivel = false; CP.erro = e.message || String(e); }
+  cpAtualizarPill();
+  if (document.getElementById('page-contaspagar')?.classList.contains('active')) cpRender();
+}
+function cpAtualizarPill() {
+  const hoje = cpHoje();
+  const n = cpTitulos().filter(t => t.tipo === 'S' && cpStatus(t, hoje) === 'vencido').length;
+  const el = document.getElementById('pill-cp');
+  if (el) { el.textContent = n; el.style.display = n ? '' : 'none'; }
+}
+async function cpRecarregar() { showLoading('Atualizando...'); await cpLoadTitulos(); hideLoading(); cpPopularMeses(); cpRender(); }
+
+// ---------- saldo e fluxo (funções puras sobre o CACHE) ----------
+function cpContas(uid) { return CACHE.contas.filter(c => !uid || c.unidade_id == uid); }
+
+// saldo das contas da unidade ANTES de "limiteExcl" (YYYY-MM-DD). Sem limite = saldo de agora.
+function cpSaldoAte(uid, limiteExcl) {
+  const contas = cpContas(uid), ids = new Set(contas.map(c => c.id));
+  let s = contas.reduce((a, c) => a + cpNum(c.saldo_inicial), 0);
+  CACHE.lancamentos.forEach(l => {
+    if (!ids.has(l.conta_bancaria_id)) return;
+    if (limiteExcl && l.data >= limiteExcl) return;
+    s += (l.tipo === 'E' ? 1 : -1) * cpNum(l.valor);
+  });
+  return s;
+}
+
+function cpFluxo(uid, ym, hoje) {
+  hoje = hoje || cpHoje();
+  const ini = `${ym}-01`, n = cpUltimoDia(ym), fim = `${ym}-${cpPad(n)}`;
+  const ids = new Set(cpContas(uid).map(c => c.id));
+  const dias = [], idx = {};
+  for (let d = 1; d <= n; d++) {
+    const data = `${ym}-${cpPad(d)}`; idx[data] = dias.length;
+    dias.push({ data, entPrev:0, entReal:0, saiPrev:0, saiReal:0, transf:0, itens:[] });
+  }
+  let semConta = 0;
+  CACHE.lancamentos.forEach(l => {
+    if (l.data < ini || l.data > fim) return;
+    if (uid && l.unidade_id != uid) return;
+    if (!ids.has(l.conta_bancaria_id)) { if (!cpIsTransf(l)) semConta++; return; }
+    const v = cpNum(l.valor), x = dias[idx[l.data]];
+    if (cpIsTransf(l)) x.transf += (l.tipo === 'E' ? v : -v);
+    else if (l.tipo === 'E') x.entReal += v; else x.saiReal += v;
+  });
+  // previsto: títulos em aberto; vencido e não pago é projetado para hoje
+  let abertosAntes = 0;
+  cpTitulos().forEach(t => {
+    if (t.status !== 'aberto' || (uid && t.unidade_id != uid)) return;
+    const data = t.vencimento < hoje ? hoje : t.vencimento, v = cpNum(t.valor);
+    if (data < ini) { abertosAntes += (t.tipo === 'E' ? v : -v); return; }
+    if (data > fim) return;
+    const x = dias[idx[data]];
+    if (t.tipo === 'E') x.entPrev += v; else x.saiPrev += v;
+    x.itens.push({ tipo:t.tipo, desc:t.descricao, valor:v });
+  });
+  const saldoInicial = cpSaldoAte(uid, ini) + abertosAntes;
+  let acum = saldoInicial, minSaldo = Infinity, minData = null;
+  const tot = { entPrev:0, entReal:0, saiPrev:0, saiReal:0, transf:0 };
+  dias.forEach(x => {
+    x.saldoDia = x.entReal + x.entPrev - x.saiReal - x.saiPrev + x.transf;
+    acum += x.saldoDia; x.saldoAcum = acum;
+    if (acum < minSaldo) { minSaldo = acum; minData = x.data; }
+    Object.keys(tot).forEach(k => tot[k] += x[k]);
+  });
+  return { ym, ini, fim, dias, saldoInicial, saldoFinal: acum, minSaldo, minData, semConta, tot, saldoHoje: cpSaldoAte(uid, null) };
+}
+
+// ---------- conciliação ----------
+function cpCandidatos(t, vinc, amplo) {
+  const de = cpAddDias(t.vencimento, amplo ? -20 : -10), ate = cpAddDias(t.vencimento, amplo ? 45 : 30);
+  const cents = Math.round(cpNum(t.valor) * 100);
+  const lista = CACHE.lancamentos.filter(l =>
+    l.unidade_id === t.unidade_id && l.tipo === t.tipo && l.conta_bancaria_id && !cpIsTransf(l) &&
+    !vinc.has(l.id) && l.data >= de && l.data <= ate &&
+    (amplo ? Math.abs(cpNum(l.valor) - cpNum(t.valor)) <= Math.max(cpNum(t.valor) * 0.15, 20)   // juros/multa: valor próximo
+           : Math.round(cpNum(l.valor) * 100) === cents));
+  return lista.sort((a, b) => amplo
+    ? (Math.abs(cpNum(a.valor) - cpNum(t.valor)) - Math.abs(cpNum(b.valor) - cpNum(t.valor))) || (Math.abs(cpDiff(t.vencimento, a.data)) - Math.abs(cpDiff(t.vencimento, b.data)))
+    : Math.abs(cpDiff(t.vencimento, a.data)) - Math.abs(cpDiff(t.vencimento, b.data)));
+}
+// só propõe quando o par é inequívoco (1 título ↔ 1 lançamento de mesmo valor na janela)
+function cpPropostas() {
+  const vinc = cpVinculados(), abertos = cpTitulos().filter(t => t.status === 'aberto');
+  const cand = new Map(), disputa = new Map();
+  abertos.forEach(t => { const cs = cpCandidatos(t, vinc, false); cand.set(t.id, cs); cs.forEach(l => disputa.set(l.id, (disputa.get(l.id) || 0) + 1)); });
+  const props = []; let ambiguos = 0, semPar = 0;
+  abertos.sort((a, b) => a.vencimento.localeCompare(b.vencimento)).forEach(t => {
+    const cs = cand.get(t.id);
+    if (!cs.length) semPar++;
+    else if (cs.length === 1 && disputa.get(cs[0].id) === 1) props.push({ t, l: cs[0] });
+    else ambiguos++;
+  });
+  return { props, ambiguos, semPar };
+}
+async function cpQuitar(t, l, baixaTipo) {                   // grava a quitação; categoriza o lançamento se estava sem categoria
+  const upd = { status:'pago', pago_em:l.data, valor_pago:cpNum(l.valor), lancamento_id:l.id, baixa_tipo:baixaTipo, conta_bancaria_id:l.conta_bancaria_id || null };
+  const { error } = await db.from('titulos').update(upd).eq('id', t.id);
+  if (error) return { ok:false, msg: /23505|duplicate|unique/i.test((error.code||'') + (error.message||''))
+    ? 'Este lançamento já está vinculado a outro título.' : (error.message || 'erro ao gravar') };
+  Object.assign(t, upd);
+  if (t.cat_id && cpSemCat(l)) {
+    const c = { cat_id:t.cat_id, cat_nome:t.cat_nome, grupo:t.grupo };
+    const r = await db.from('lancamentos').update(c).eq('id', l.id);
+    if (!r.error) Object.assign(l, c);
+  }
+  return { ok:true };
+}
+
+// ---------- recorrentes (Orçamento/PE → títulos) ----------
+const CP_ALIAS = { insumos:['produtosinsumosoperacao'], internettelefone:['telefoneinternet'], gustavo:['gustavo','gerenciaadmfinanceira'] };
+function cpMatchCategoria(nome, tipo) {
+  const n = cpNorm(nome);
+  for (const c of [n, ...(CP_ALIAS[n] || [])]) {
+    const m = CACHE.categorias.find(x => cpNorm(x.nome) === c && x.tipo === tipo);
+    if (m) return m;
+  }
+  return null;
+}
+function cpPlanoRecorrentes(uids, ym) {
+  const existentes = new Set(cpTitulos().filter(t => t.orc_chave).map(t => t.unidade_id + '|' + t.orc_chave));
+  const novos = []; let jaExistem = 0; const semCat = new Set();
+  uids.forEach(uid => {
+    const vezes = {};
+    getOrcamento(Number(uid)).forEach(it => {
+      const v = cpNum(it.valor); if (!(v > 0)) return;
+      const base = `${ym}|${cpNorm(it.nome)}`; vezes[base] = (vezes[base] || 0) + 1;
+      const chave = vezes[base] > 1 ? `${base}#${vezes[base]}` : base;
+      if (existentes.has(uid + '|' + chave)) { jaExistem++; return; }
+      const dia = Math.min(parseInt(it.dia) || 1, cpUltimoDia(ym)), cat = cpMatchCategoria(it.nome, 'S');
+      if (!cat) semCat.add(it.nome);
+      novos.push({ unidade_id:Number(uid), tipo:'S', descricao:it.nome, cat_id:cat ? cat.id : null, cat_nome:cat ? cat.nome : null,
+        grupo:cat ? cat.grupo : null, valor:v, vencimento:`${ym}-${cpPad(dia)}`, status:'aberto', origem:'orcamento', orc_chave:chave });
+    });
+  });
+  return { novos, jaExistem, semCategoria:[...semCat] };
+}
+
+// ---------- confirmação genérica ----------
+function cpConfirmar(titulo, msg, rotulo, fn) {
+  document.getElementById('cp-conf-titulo').textContent = titulo;
+  document.getElementById('cp-conf-msg').textContent = msg;
+  const b = document.getElementById('cp-conf-btn'); b.textContent = rotulo;
+  b.onclick = () => { fecharModal('modal-cp-conf'); fn(); };
+  abrirModal('modal-cp-conf');
+}
+
+// ---------- tela ----------
+function cpInit() { populateU('cp-u', 'Todas as unidades'); cpPopularMeses(); cpTab(CP.aba); }
+function cpPopularMeses() {
+  const s = document.getElementById('cp-m'); if (!s) return;
+  const cur = s.value, set = new Set(getMesesComFuturos(6));
+  cpTitulos().forEach(t => set.add(t.vencimento.slice(0, 7)));
+  const lista = [...set].sort().reverse(), atual = cpHoje().slice(0, 7);
+  s.innerHTML = '<option value="">Todos os meses</option>' + lista.map(m => `<option value="${m}">${nomeMes(m)}</option>`).join('');
+  s.value = (s.dataset.init && (cur === '' || lista.includes(cur))) ? cur : (lista.includes(atual) ? atual : '');
+  s.dataset.init = '1';
+}
+function cpTab(aba) {
+  CP.aba = aba;
+  document.querySelectorAll('#cp-tabs .tab').forEach(t => t.classList.toggle('active', t.dataset.aba === aba));
+  cpRender();
+}
+function cpRender() {
+  const corpo = document.getElementById('cp-corpo'); if (!corpo) return;
+  document.getElementById('cp-st').style.display = CP.aba === 'fluxo' ? 'none' : '';
+  if (!CP.disponivel) {
+    document.getElementById('cp-stats').innerHTML = '';
+    corpo.innerHTML = `<div class="alert warn"><i class="ti ti-alert-triangle"></i><div><strong>A tabela de títulos ainda não existe no Supabase.</strong><br>
+      Rode o arquivo <code>17_contas_pagar.sql</code> no SQL Editor e clique em atualizar.<br><span style="font-size:11px;opacity:.8">${cpEsc(CP.erro)}</span></div></div>`;
+    return;
+  }
+  if (CP.aba === 'fluxo') cpRenderFluxo(); else cpRenderLista();
+}
+
+function cpRenderLista() {
+  const tipo = CP.aba === 'pagar' ? 'S' : 'E', receber = tipo === 'E', hoje = cpHoje();
+  const uid = document.getElementById('cp-u').value, mes = document.getElementById('cp-m').value, st = document.getElementById('cp-st').value;
+  const base = cpTitulos().filter(t => t.tipo === tipo && (!uid || t.unidade_id == uid));
+  const noMes = base.filter(t => !mes || t.vencimento.startsWith(mes));
+  const soma = (arr, f) => arr.reduce((s, t) => s + (f ? f(t) : cpNum(t.valor)), 0);
+  const abertoPer = soma(noMes.filter(t => t.status === 'aberto'));
+  const vencido = soma(base.filter(t => cpStatus(t, hoje) === 'vencido'));
+  const prox7 = soma(base.filter(t => t.status === 'aberto' && t.vencimento >= hoje && t.vencimento <= cpAddDias(hoje, 7)));
+  const quitado = soma(noMes.filter(t => t.status === 'pago'), t => cpNum(t.valor_pago != null ? t.valor_pago : t.valor));
+  document.getElementById('cp-stats').innerHTML = `
+    <div class="stat"><div class="stat-label">${receber ? 'A receber' : 'Em aberto'} (período)</div><div class="stat-value ${receber ? 'g' : ''}">${cpBRL(abertoPer)}</div></div>
+    <div class="stat"><div class="stat-label">${receber ? 'Em atraso' : 'Vencido'} (todos os meses)</div><div class="stat-value ${vencido ? 'r' : ''}">${cpBRL(vencido)}</div></div>
+    <div class="stat"><div class="stat-label">${receber ? 'Recebe' : 'Vence'} em 7 dias</div><div class="stat-value a">${cpBRL(prox7)}</div></div>
+    <div class="stat"><div class="stat-label">${receber ? 'Recebido' : 'Pago'} (período)</div><div class="stat-value g">${cpBRL(quitado)}</div></div>`;
+  const lista = noMes.filter(t => {
+    const s = cpStatus(t, hoje);
+    return st === 'abertos' ? (s === 'aberto' || s === 'vencido') : st === 'vencidos' ? s === 'vencido' :
+           st === 'pagos' ? s === 'pago' : st === 'cancelados' ? s === 'cancelado' : true;
+  }).sort((a, b) => a.vencimento.localeCompare(b.vencimento) || a.id - b.id);
+  const corpo = document.getElementById('cp-corpo');
+  if (!lista.length) {
+    corpo.innerHTML = `<div class="empty"><i class="ti ti-receipt-2"></i>Nenhum título neste filtro.<br>
+      <span style="font-size:12px">Use <strong>Gerar do Orçamento</strong> para criar as despesas fixas do mês ou <strong>Novo título</strong>.</span></div>`;
+    return;
+  }
+  const linhas = lista.map(t => {
+    const s = cpStatus(t, hoje), u = CACHE.unidades.find(x => x.id === t.unidade_id), dias = cpDiff(hoje, t.vencimento);
+    const badge = s === 'vencido' ? `<span class="badge r">Vencido há ${-dias} d</span>`
+      : s === 'aberto' ? (dias === 0 ? '<span class="badge a">Vence hoje</span>' : `<span class="badge b">Vence em ${dias} d</span>`)
+      : s === 'pago' ? (t.lancamento_id ? `<span class="badge g">${receber ? 'Recebido' : 'Pago'} ${fDate(t.pago_em)}</span>` : '<span class="badge a">Baixa sem lançamento</span>')
+      : '<span class="badge gr">Cancelado</span>';
+    const acoes = (s === 'aberto' || s === 'vencido')
+      ? `<button class="btn sm primary" onclick="cpAbrirBaixa(${t.id})">${receber ? 'Receber' : 'Baixar'}</button>
+         <button class="btn sm" onclick="cpEditar(${t.id})" title="Editar"><i class="ti ti-edit"></i></button>
+         <button class="btn sm danger" onclick="cpExcluir(${t.id})" title="Excluir"><i class="ti ti-trash"></i></button>`
+      : s === 'pago' ? `<button class="btn sm" onclick="cpReabrir(${t.id})">Reabrir</button>`
+      : `<button class="btn sm" onclick="cpReativar(${t.id})">Reativar</button>`;
+    return `<tr>
+      <td class="l">${fDate(t.vencimento)}</td>
+      <td class="l wrap">${cpEsc(t.descricao)}${t.origem === 'orcamento' ? ' <span class="badge gr" title="Gerado do Orçamento/PE">orç.</span>' : ''}</td>
+      <td class="l">${cpEsc(u ? u.nome : '—')}</td>
+      <td class="l">${t.cat_nome ? cpEsc(t.cat_nome) : '<span class="badge a">sem categoria</span>'}</td>
+      <td class="${receber ? 'tx-e' : 'tx-s'}">${fBRL(t.valor)}</td>
+      <td class="l">${badge}</td>
+      <td style="text-align:right">${acoes}</td></tr>`;
+  }).join('');
+  corpo.innerHTML = `<div class="cp-wrap"><table class="cp-table">
+    <thead><tr><th class="l">Vencimento</th><th class="l">Descrição</th><th class="l">Unidade</th><th class="l">Categoria</th><th>Valor</th><th class="l">Situação</th><th></th></tr></thead>
+    <tbody>${linhas}</tbody>
+    <tfoot><tr><td class="l" colspan="4">${lista.length} título${lista.length > 1 ? 's' : ''}</td><td>${fBRL(soma(lista))}</td><td colspan="2"></td></tr></tfoot>
+  </table></div>`;
+}
+
+function cpRenderFluxo() {
+  const sm = document.getElementById('cp-m');
+  if (!sm.value) sm.value = cpHoje().slice(0, 7);
+  const uid = document.getElementById('cp-u').value, hoje = cpHoje(), F = cpFluxo(uid, sm.value, hoje);
+  const atrasoS = cpTitulos().filter(t => t.tipo === 'S' && (!uid || t.unidade_id == uid) && cpStatus(t, hoje) === 'vencido').reduce((s, t) => s + cpNum(t.valor), 0);
+  document.getElementById('cp-stats').innerHTML = `
+    <div class="stat"><div class="stat-label">Saldo bancário hoje</div><div class="stat-value ${F.saldoHoje < 0 ? 'r' : 'g'}">${cpBRL(F.saldoHoje)}</div><div class="stat-delta">${cpContas(uid).length} conta(s)</div></div>
+    <div class="stat"><div class="stat-label">Saldo no início do mês</div><div class="stat-value">${cpBRL(F.saldoInicial)}</div></div>
+    <div class="stat"><div class="stat-label">Saldo final previsto</div><div class="stat-value ${F.saldoFinal < 0 ? 'r' : 'g'}">${cpBRL(F.saldoFinal)}</div></div>
+    <div class="stat"><div class="stat-label">Menor saldo no mês</div><div class="stat-value ${F.minSaldo < 0 ? 'r' : ''}">${cpBRL(F.minSaldo)}</div><div class="stat-delta">em ${fDate(F.minData).slice(0, 5)}</div></div>
+    <div class="stat"><div class="stat-label">A pagar em atraso</div><div class="stat-value ${atrasoS ? 'r' : ''}">${cpBRL(atrasoS)}</div></div>`;
+  const nomeDia = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  const cel = (v, cls) => v ? `<td class="${cls || ''}">${cpBRL(v)}</td>` : '<td class="cp-nil">—</td>';
+  const linhas = F.dias.map(x => {
+    const dow = new Date(cpParse(x.data)).getUTCDay();
+    const tip = x.itens.length ? ` title="${x.itens.map(i => cpEsc((i.tipo === 'E' ? '+ ' : '− ') + i.desc + ': ' + cpBRL(i.valor))).join('&#10;')}"` : '';
+    return `<tr class="${x.data === hoje ? 'hoje' : ''} ${(dow === 0 || dow === 6) ? 'fds' : ''} ${x.saldoAcum < 0 ? 'neg' : ''}">
+      <td class="l">${x.data.slice(8)}/${x.data.slice(5, 7)} <span class="cp-nil">${nomeDia[dow]}</span></td>
+      ${x.entPrev ? `<td class="tx-e"${tip}>${cpBRL(x.entPrev)}</td>` : '<td class="cp-nil">—</td>'}
+      ${cel(x.entReal, 'tx-e')}
+      ${x.saiPrev ? `<td class="tx-s"${tip}>${cpBRL(x.saiPrev)}</td>` : '<td class="cp-nil">—</td>'}
+      ${cel(x.saiReal, 'tx-s')}
+      ${cel(x.transf, '')}
+      <td class="${x.saldoDia < 0 ? 'tx-s' : ''}">${x.saldoDia ? cpBRL(x.saldoDia) : '<span class="cp-nil">—</span>'}</td>
+      <td class="acum">${cpBRL(x.saldoAcum)}</td></tr>`;
+  }).join('');
+  const T = F.tot, net = T.entReal + T.entPrev - T.saiReal - T.saiPrev + T.transf;
+  document.getElementById('cp-corpo').innerHTML =
+    (F.semConta ? `<div class="alert warn"><i class="ti ti-alert-triangle"></i><span><strong>${F.semConta} lançamento(s) deste mês não têm conta bancária</strong> e ficaram fora do fluxo (ex.: importados do Relatório Gerencial). Vincule-os a uma conta para entrarem no saldo.</span></div>` : '') +
+    `<div class="cp-wrap"><table class="cp-table">
+      <thead><tr><th class="l">Dia</th><th>Entradas previstas</th><th>Entradas realizadas</th><th>Saídas previstas</th><th>Saídas realizadas</th><th>Transf.</th><th>Saldo do dia</th><th>Saldo acumulado</th></tr></thead>
+      <tbody>${linhas}</tbody>
+      <tfoot><tr><td class="l">Total</td><td>${cpBRL(T.entPrev)}</td><td>${cpBRL(T.entReal)}</td><td>${cpBRL(T.saiPrev)}</td><td>${cpBRL(T.saiReal)}</td><td>${cpBRL(T.transf)}</td><td>${cpBRL(net)}</td><td>${cpBRL(F.saldoFinal)}</td></tr></tfoot>
+    </table></div>
+    <p style="font-size:11px;color:var(--text3);margin-top:8px">Previsto = títulos em aberto (os vencidos entram em hoje). Realizado = lançamentos do extrato vinculados às contas. O saldo parte do saldo real das contas no início do mês. Passe o mouse sobre um valor previsto para ver os títulos do dia.</p>`;
+}
+
+// ---------- novo / editar ----------
+function cpPopularCatModal(sel) {
+  const tipo = document.getElementById('cp-f-tipo').value, s = document.getElementById('cp-f-cat');
+  const nomes = { receita:'Receitas', deducao:'Deduções', csp:'CSP', cmv:'CMV', despesa_operacional:'Despesas Operacionais', resultado_financeiro:'Resultado Financeiro' };
+  let h = '<option value="">Sem categoria</option>';
+  Object.keys(nomes).forEach(g => {
+    const cs = CACHE.categorias.filter(c => c.grupo === g && c.tipo === tipo); if (!cs.length) return;
+    h += `<optgroup label="${nomes[g]}">${cs.map(c => `<option value="${c.id}">${cpEsc(c.nome)}</option>`).join('')}</optgroup>`;
+  });
+  s.innerHTML = h; if (sel) s.value = sel;
+}
+function cpNovo() {
+  if (!CP.disponivel) { alert('Rode o SQL 17_contas_pagar.sql no Supabase primeiro.'); return; }
+  CP.editId = null;
+  document.getElementById('cp-modal-title').textContent = 'Novo título';
+  const tipo = CP.aba === 'receber' ? 'E' : 'S';
+  const tp = document.getElementById('cp-f-tipo'); tp.value = tipo; tp.disabled = false;
+  populateU('cp-f-u', 'Selecione...'); document.getElementById('cp-f-u').value = document.getElementById('cp-u').value || '';
+  cpPopularCatModal();
+  ['cp-f-desc', 'cp-f-valor', 'cp-f-obs'].forEach(i => document.getElementById(i).value = '');
+  document.getElementById('cp-f-venc').value = cpHoje();
+  document.getElementById('cp-f-rep').value = 1; document.getElementById('cp-f-rep-grp').style.display = '';
+  abrirModal('modal-cp');
+}
+function cpEditar(id) {
+  const t = cpTitulos().find(x => x.id === id); if (!t) return;
+  CP.editId = id;
+  document.getElementById('cp-modal-title').textContent = 'Editar título';
+  const tp = document.getElementById('cp-f-tipo'); tp.value = t.tipo; tp.disabled = true;
+  populateU('cp-f-u', 'Selecione...'); document.getElementById('cp-f-u').value = t.unidade_id;
+  cpPopularCatModal(t.cat_id || '');
+  document.getElementById('cp-f-desc').value = t.descricao; document.getElementById('cp-f-valor').value = t.valor;
+  document.getElementById('cp-f-venc').value = t.vencimento; document.getElementById('cp-f-obs').value = t.observacao || '';
+  document.getElementById('cp-f-rep-grp').style.display = 'none';
+  abrirModal('modal-cp');
+}
+async function cpSalvar() {
+  const tipo = document.getElementById('cp-f-tipo').value, uid = parseInt(document.getElementById('cp-f-u').value);
+  const desc = document.getElementById('cp-f-desc').value.trim(), valor = parseFloat(document.getElementById('cp-f-valor').value);
+  const venc = document.getElementById('cp-f-venc').value, obs = document.getElementById('cp-f-obs').value.trim();
+  const catId = parseInt(document.getElementById('cp-f-cat').value) || null, cat = catId ? CACHE.categorias.find(c => c.id === catId) : null;
+  if (!uid) { alert('Selecione a unidade.'); return; }
+  if (!desc) { alert('Informe o fornecedor / descrição.'); return; }
+  if (!(valor > 0)) { alert('Informe um valor maior que zero.'); return; }
+  if (!venc) { alert('Informe o vencimento.'); return; }
+  const campos = { unidade_id:uid, descricao:desc, cat_id:catId, cat_nome:cat ? cat.nome : null, grupo:cat ? cat.grupo : null, valor, vencimento:venc, observacao:obs || null };
+  showLoading('Salvando...');
+  if (CP.editId) {
+    const { error } = await db.from('titulos').update(campos).eq('id', CP.editId);
+    hideLoading(); if (error) { alert('Erro: ' + error.message); return; }
+    Object.assign(cpTitulos().find(x => x.id === CP.editId), campos);
+  } else {
+    const n = Math.max(1, Math.min(36, parseInt(document.getElementById('cp-f-rep').value) || 1)), rows = [];
+    for (let i = 0; i < n; i++) rows.push({ ...campos, tipo, vencimento:cpAddMes(venc, i), status:'aberto', origem:n > 1 ? 'recorrente' : 'manual' });
+    const { data, error } = await db.from('titulos').insert(rows).select();
+    hideLoading(); if (error) { alert('Erro: ' + error.message); return; }
+    CACHE.titulos.push(...(data || []));
+  }
+  fecharModal('modal-cp'); cpPopularMeses(); cpAtualizarPill(); cpRender();
+}
+
+// ---------- excluir / reabrir / reativar ----------
+function cpExcluir(id) {
+  const t = cpTitulos().find(x => x.id === id); if (!t) return;
+  if (t.status === 'pago') { alert('Reabra o título antes de excluir.'); return; }
+  if (t.origem === 'orcamento') {
+    cpConfirmar('Cancelar título', `"${t.descricao}" veio do Orçamento/PE. Ele será marcado como cancelado e não será recriado ao gerar o mês novamente.`, 'Cancelar título', async () => {
+      const { error } = await db.from('titulos').update({ status:'cancelado' }).eq('id', id);
+      if (error) { alert('Erro: ' + error.message); return; }
+      t.status = 'cancelado'; cpAtualizarPill(); cpRender();
+    });
+  } else {
+    confirmarExclusao(`Excluir o título "${t.descricao}"?`, async () => {
+      const { error } = await db.from('titulos').delete().eq('id', id);
+      if (error) { alert('Erro: ' + error.message); return; }
+      CACHE.titulos = CACHE.titulos.filter(x => x.id !== id); cpAtualizarPill(); cpRender();
+    });
+  }
+}
+async function cpReativar(id) {
+  const t = cpTitulos().find(x => x.id === id); if (!t) return;
+  const { error } = await db.from('titulos').update({ status:'aberto' }).eq('id', id);
+  if (error) { alert('Erro: ' + error.message); return; }
+  t.status = 'aberto'; cpAtualizarPill(); cpRender();
+}
+function cpReabrir(id) {
+  const t = cpTitulos().find(x => x.id === id); if (!t) return;
+  const caixa = t.baixa_tipo === 'caixa' && t.lancamento_id;
+  cpConfirmar('Reabrir título', caixa
+    ? 'Este pagamento foi registrado em caixa pelo sistema. Ao reabrir, o lançamento de caixa criado será excluído.'
+    : 'O título volta a ficar em aberto. O lançamento do extrato continua existindo, apenas deixa de estar vinculado.', 'Reabrir', async () => {
+    showLoading('Reabrindo...');
+    if (caixa) {
+      const r = await db.from('lancamentos').delete().eq('id', t.lancamento_id);
+      if (r.error) { hideLoading(); alert('Erro: ' + r.error.message); return; }
+      CACHE.lancamentos = CACHE.lancamentos.filter(l => l.id !== t.lancamento_id);
+    }
+    const upd = { status:'aberto', pago_em:null, valor_pago:null, lancamento_id:null, baixa_tipo:null };
+    const { error } = await db.from('titulos').update(upd).eq('id', id);
+    hideLoading(); if (error) { alert('Erro: ' + error.message); return; }
+    Object.assign(t, upd); cpAtualizarPill(); cpRender();
+  });
+}
+
+// ---------- baixa ----------
+function cpHtmlCand(l, marcar) {
+  const cb = CACHE.contas.find(c => c.id === l.conta_bancaria_id);
+  return `<label class="cp-cand"><input type="radio" name="cp-cand" value="${l.id}" ${marcar ? 'checked' : ''}>
+    <span><strong>${fDate(l.data)}</strong> · ${cpBRL(l.valor)} · ${cpEsc((l.descricao || '').slice(0, 90))}<br>
+    <span class="cp-nil">${cpEsc(cb ? cb.nome : '')} · ${l.cat_nome ? cpEsc(l.cat_nome) : 'sem categoria'}</span></span></label>`;
+}
+function cpAbrirBaixa(id) {
+  const t = cpTitulos().find(x => x.id === id); if (!t) return;
+  CP.baixaId = id;
+  const vinc = cpVinculados(), receber = t.tipo === 'E', u = CACHE.unidades.find(x => x.id === t.unidade_id);
+  const exatos = cpCandidatos(t, vinc, false);
+  const lista = exatos.length ? exatos : cpCandidatos(t, vinc, true).slice(0, 25);
+  document.getElementById('cp-baixa-titulo').textContent = receber ? 'Receber título' : 'Baixar título';
+  const caixas = CACHE.contas.filter(c => c.unidade_id === t.unidade_id && c.tipo === 'caixa');
+  document.getElementById('cp-baixa-corpo').innerHTML = `
+    <div class="alert info" style="margin-bottom:10px"><i class="ti ti-receipt-2"></i><span><strong>${cpEsc(t.descricao)}</strong> · ${cpEsc(u ? u.nome : '')} · ${cpBRL(t.valor)} · vence ${fDate(t.vencimento)}</span></div>
+    <div class="cp-sec">1) Já está no extrato — vincular ao lançamento</div>
+    ${lista.length ? (exatos.length ? '' : '<p style="font-size:12px;color:var(--text3);margin-bottom:6px">Nenhum lançamento com o mesmo valor na janela. Mostrando valores próximos (juros/multa):</p>') + lista.map((l, i) => cpHtmlCand(l, exatos.length && i === 0)).join('')
+      : '<p style="font-size:12px;color:var(--text3)">Nenhum lançamento compatível ainda. Importe o OFX da conta e volte, ou registre o pagamento em caixa abaixo.</p>'}
+    ${lista.length ? `<div style="text-align:right;margin-top:8px"><button class="btn primary" onclick="cpConciliarSel()">Vincular selecionado</button></div>` : ''}
+    <div class="cp-sec">2) Não passa pelo banco — registrar em caixa</div>
+    ${caixas.length ? `<div class="field-row">
+        <div class="field-group"><label>Data do ${receber ? 'recebimento' : 'pagamento'}</label><input type="date" id="cp-bx-data" value="${cpHoje()}"></div>
+        <div class="field-group"><label>Conta</label><select id="cp-bx-conta">${caixas.map(c => `<option value="${c.id}">${cpEsc(c.nome)}</option>`).join('')}</select></div></div>
+        <div style="text-align:right"><button class="btn" onclick="cpBaixaCaixa()">Registrar em caixa</button></div>`
+      : '<p style="font-size:12px;color:var(--text3)">Esta unidade não tem conta do tipo Caixa. Cadastre em Contas Bancárias para usar esta opção.</p>'}
+    <div class="modal-actions"><button class="btn" onclick="fecharModal('modal-cp-baixa')">Fechar</button></div>`;
+  abrirModal('modal-cp-baixa');
+}
+async function cpConciliarSel() {
+  const r = document.querySelector('input[name="cp-cand"]:checked');
+  if (!r) { alert('Selecione um lançamento.'); return; }
+  const t = cpTitulos().find(x => x.id === CP.baixaId), l = CACHE.lancamentos.find(x => x.id === parseInt(r.value));
+  if (!t || !l) return;
+  showLoading('Vinculando...'); const res = await cpQuitar(t, l, 'conciliado'); hideLoading();
+  if (!res.ok) { alert(res.msg); return; }
+  fecharModal('modal-cp-baixa'); cpAtualizarPill(); cpRender();
+}
+async function cpBaixaCaixa() {
+  const t = cpTitulos().find(x => x.id === CP.baixaId); if (!t) return;
+  const data = document.getElementById('cp-bx-data').value, contaId = parseInt(document.getElementById('cp-bx-conta').value) || null;
+  const conta = CACHE.contas.find(c => c.id === contaId);
+  if (!data || !conta) { alert('Informe a data e a conta.'); return; }
+  showLoading('Registrando...');
+  const ins = await db.from('lancamentos').insert({
+    unidade_id:t.unidade_id, data, descricao:`${t.descricao} (conta ${t.tipo === 'E' ? 'a receber' : 'a pagar'})`, cat_id:t.cat_id, cat_nome:t.cat_nome, grupo:t.grupo,
+    tipo:t.tipo, valor:cpNum(t.valor), conta:conta.tipo, conta_bancaria_id:conta.id }).select().single();
+  if (ins.error) { hideLoading(); alert('Erro: ' + ins.error.message); return; }
+  const l = ins.data; CACHE.lancamentos.push(l);
+  const res = await cpQuitar(t, l, 'caixa');
+  if (!res.ok) {                                              // desfaz o lançamento para não ficar órfão
+    await db.from('lancamentos').delete().eq('id', l.id);
+    CACHE.lancamentos = CACHE.lancamentos.filter(x => x.id !== l.id);
+    hideLoading(); alert(res.msg); return;
+  }
+  hideLoading(); fecharModal('modal-cp-baixa'); cpAtualizarPill(); cpRender();
+}
+
+// ---------- conciliação automática ----------
+function cpAbrirAuto() {
+  if (!CP.disponivel) { alert('Rode o SQL 17_contas_pagar.sql no Supabase primeiro.'); return; }
+  const { props, ambiguos, semPar } = cpPropostas(); CP.props = props;
+  const linhas = props.map((p, i) => `<tr>
+    <td><input type="checkbox" id="cp-auto-${i}" checked style="width:auto"></td>
+    <td class="l">${fDate(p.t.vencimento)}</td><td class="l wrap">${cpEsc(p.t.descricao)}<br><span class="cp-nil">${cpEsc((CACHE.unidades.find(u => u.id === p.t.unidade_id) || {}).nome || '')}</span></td>
+    <td>${cpBRL(p.t.valor)}</td><td class="l">${fDate(p.l.data)}</td>
+    <td class="l wrap">${cpEsc((p.l.descricao || '').slice(0, 70))}<br>${cpSemCat(p.l) && p.t.cat_nome ? `<span class="badge g">categoriza como ${cpEsc(p.t.cat_nome)}</span>` : ''}</td></tr>`).join('');
+  document.getElementById('cp-auto-corpo').innerHTML = `
+    <p style="font-size:12.5px;color:var(--text2);margin-bottom:10px">Pares inequívocos: mesma unidade, mesmo valor e data próxima do vencimento. ${ambiguos ? `<strong>${ambiguos}</strong> título(s) têm mais de um lançamento possível e ficam para vincular manualmente. ` : ''}${semPar ? `${semPar} título(s) em aberto ainda não têm lançamento no extrato.` : ''}</p>
+    ${props.length ? `<div class="cp-wrap" style="max-height:46vh"><table class="cp-table">
+      <thead><tr><th></th><th class="l">Vencimento</th><th class="l">Título</th><th>Valor</th><th class="l">Lançamento</th><th class="l">Descrição no extrato</th></tr></thead><tbody>${linhas}</tbody></table></div>`
+      : '<div class="empty" style="padding:1.5rem"><i class="ti ti-link-off"></i>Nenhuma correspondência encontrada.</div>'}
+    <div class="modal-actions"><button class="btn" onclick="fecharModal('modal-cp-auto')">Fechar</button>
+      ${props.length ? '<button class="btn primary" onclick="cpAplicarAuto()">Vincular selecionados</button>' : ''}</div>`;
+  abrirModal('modal-cp-auto');
+}
+async function cpAplicarAuto() {
+  const sel = CP.props.filter((p, i) => document.getElementById('cp-auto-' + i)?.checked);
+  if (!sel.length) return;
+  showLoading('Vinculando...'); let ok = 0, falhas = [];
+  for (const p of sel) { const r = await cpQuitar(p.t, p.l, 'conciliado'); if (r.ok) ok++; else falhas.push(p.t.descricao + ': ' + r.msg); }
+  hideLoading(); fecharModal('modal-cp-auto'); cpAtualizarPill(); cpRender();
+  showAlert('cp-alert', falhas.length ? 'warn' : 'success', `${ok} título(s) vinculado(s) ao extrato.` + (falhas.length ? ` ${falhas.length} não foram vinculados (${cpEsc(falhas[0])}).` : ''));
+}
+
+// ---------- gerar recorrentes do Orçamento/PE ----------
+function cpGerarRecorrentes() {
+  if (!CP.disponivel) { alert('Rode o SQL 17_contas_pagar.sql no Supabase primeiro.'); return; }
+  const ym = document.getElementById('cp-m').value || cpHoje().slice(0, 7), uidSel = document.getElementById('cp-u').value;
+  const uids = uidSel ? [Number(uidSel)] : CACHE.unidades.map(u => u.id);
+  const plano = cpPlanoRecorrentes(uids, ym);
+  if (!plano.novos.length) { showAlert('cp-alert', 'info', `Nada a gerar em ${nomeMes(ym)}: ${plano.jaExistem} item(ns) do Orçamento/PE já existem como título.`); return; }
+  const n = new Set(plano.novos.map(r => r.unidade_id)).size;
+  cpConfirmar('Gerar do Orçamento/PE', `Serão criados ${plano.novos.length} título(s) a pagar de ${nomeMes(ym)} em ${n} unidade(s)` +
+    (plano.jaExistem ? ` (${plano.jaExistem} já existiam e não serão repetidos)` : '') + '.' +
+    (plano.semCategoria.length ? `\n\nSem categoria correspondente: ${plano.semCategoria.join(', ')}. Você poderá ajustar depois.` : ''), 'Gerar', async () => {
+    showLoading('Gerando títulos...');
+    for (let i = 0; i < plano.novos.length; i += 200) {
+      const { data, error } = await db.from('titulos').insert(plano.novos.slice(i, i + 200)).select();
+      if (error) { hideLoading(); alert('Erro: ' + error.message); await cpLoadTitulos(); cpPopularMeses(); cpRender(); return; }
+      CACHE.titulos.push(...(data || []));
+    }
+    hideLoading(); cpPopularMeses(); cpAtualizarPill(); cpRender();
+    showAlert('cp-alert', 'success', `${plano.novos.length} título(s) gerado(s) para ${nomeMes(ym)}.`);
+  });
 }
 
 // ============================================================
