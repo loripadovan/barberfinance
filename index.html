@@ -1600,6 +1600,12 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
       <div class="field-group" id="cp-f-rep-grp"><label>Repetir por quantos meses</label><input type="number" min="1" max="36" value="1" id="cp-f-rep"></div>
       <div class="field-group"><label>Observação</label><input type="text" id="cp-f-obs"></div>
     </div>
+    <div class="field-row" id="cp-f-ax-row">
+      <div class="field-group"><label>Anexar (opcional)</label>
+        <select id="cp-f-ax-tipo"><option value="boleto">Boleto</option><option value="nf">Nota fiscal</option></select></div>
+      <div class="field-group"><label>Arquivo (PDF ou foto)</label>
+        <input type="file" id="cp-f-ax-file" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,image/*,application/pdf"></div>
+    </div>
     <div class="modal-actions">
       <button class="btn" onclick="fecharModal('modal-cp')">Cancelar</button>
       <button class="btn primary" onclick="cpSalvar()">Salvar</button>
@@ -1618,6 +1624,25 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
   <div class="modal" style="width:820px">
     <div class="modal-title">Conciliar títulos com o extrato</div>
     <div id="cp-auto-corpo"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-cp-anexos">
+  <div class="modal" style="width:680px">
+    <div class="modal-title" id="cp-ax-titulo">Documentos do título</div>
+    <div id="cp-ax-corpo"></div>
+    <div class="modal-actions"><button class="btn" onclick="fecharModal('modal-cp-anexos')">Fechar</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-cp-prev">
+  <div class="modal" style="width:860px">
+    <div class="modal-title" id="cp-prev-titulo"></div>
+    <div style="text-align:center"><img id="cp-prev-img" alt="" style="max-width:100%;max-height:70vh"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="cpAbrirAnexo(CP.prev.id, true)">Baixar</button>
+      <button class="btn" onclick="fecharModal('modal-cp-prev')">Fechar</button>
+    </div>
   </div>
 </div>
 
@@ -1945,6 +1970,7 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
 .cp-cand:hover{background:var(--bg2)}
 .cp-cand input{width:auto;margin-top:3px}
 .cp-sec{font-size:12px;font-weight:600;color:var(--text2);margin:14px 0 6px}
+.cp-ax-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:5px;font-size:12.5px}
 </style>
 
 <script>
@@ -7265,7 +7291,7 @@ function cpStatus(t, hoje) {
 
 // ---------- carga ----------
 async function cpLoadTitulos() {
-  CACHE.titulos = [];
+  CACHE.titulos = []; CACHE.anexos = [];
   if (!db) return;
   try {
     const PAGE = 1000; let from = 0, all = [];
@@ -7280,6 +7306,7 @@ async function cpLoadTitulos() {
     }
     CP.disponivel = true; CP.erro = '';
     CACHE.titulos = all;
+    await cpLoadAnexos();
   } catch (e) { CP.disponivel = false; CP.erro = e.message || String(e); }
   cpAtualizarPill();
   if (document.getElementById('page-contaspagar')?.classList.contains('active')) cpRender();
@@ -7487,12 +7514,14 @@ function cpRenderLista() {
       : s === 'aberto' ? (dias === 0 ? '<span class="badge a">Vence hoje</span>' : `<span class="badge b">Vence em ${dias} d</span>`)
       : s === 'pago' ? (t.lancamento_id ? `<span class="badge g">${receber ? 'Recebido' : 'Pago'} ${fDate(t.pago_em)}</span>` : '<span class="badge a">Baixa sem lançamento</span>')
       : '<span class="badge gr">Cancelado</span>';
-    const acoes = (s === 'aberto' || s === 'vencido')
+    const nAx = cpAnexosDe(t.id).length;
+    const clip = `<button class="btn sm" onclick="cpAbrirAnexos(${t.id})" title="Boleto, nota fiscal e comprovante"><i class="ti ti-paperclip"></i>${nAx ? ' ' + nAx : ''}</button>`;
+    const acoes = clip + ' ' + ((s === 'aberto' || s === 'vencido')
       ? `<button class="btn sm primary" onclick="cpAbrirBaixa(${t.id})">${receber ? 'Receber' : 'Baixar'}</button>
          <button class="btn sm" onclick="cpEditar(${t.id})" title="Editar"><i class="ti ti-edit"></i></button>
          <button class="btn sm danger" onclick="cpExcluir(${t.id})" title="Excluir"><i class="ti ti-trash"></i></button>`
       : s === 'pago' ? `<button class="btn sm" onclick="cpReabrir(${t.id})">Reabrir</button>`
-      : `<button class="btn sm" onclick="cpReativar(${t.id})">Reativar</button>`;
+      : `<button class="btn sm" onclick="cpReativar(${t.id})">Reativar</button>`);
     return `<tr>
       <td class="l">${fDate(t.vencimento)}</td>
       <td class="l wrap">${cpEsc(t.descricao)}${t.origem === 'orcamento' ? ' <span class="badge gr" title="Gerado do Orçamento/PE">orç.</span>' : ''}</td>
@@ -7568,6 +7597,7 @@ function cpNovo() {
   ['cp-f-desc', 'cp-f-valor', 'cp-f-obs'].forEach(i => document.getElementById(i).value = '');
   document.getElementById('cp-f-venc').value = cpHoje();
   document.getElementById('cp-f-rep').value = 1; document.getElementById('cp-f-rep-grp').style.display = '';
+  document.getElementById('cp-f-ax-file').value = ''; document.getElementById('cp-f-ax-row').style.display = '';
   abrirModal('modal-cp');
 }
 function cpEditar(id) {
@@ -7579,7 +7609,7 @@ function cpEditar(id) {
   cpPopularCatModal(t.cat_id || '');
   document.getElementById('cp-f-desc').value = t.descricao; document.getElementById('cp-f-valor').value = t.valor;
   document.getElementById('cp-f-venc').value = t.vencimento; document.getElementById('cp-f-obs').value = t.observacao || '';
-  document.getElementById('cp-f-rep-grp').style.display = 'none';
+  document.getElementById('cp-f-rep-grp').style.display = 'none'; document.getElementById('cp-f-ax-row').style.display = 'none';
   abrirModal('modal-cp');
 }
 async function cpSalvar() {
@@ -7592,6 +7622,11 @@ async function cpSalvar() {
   if (!(valor > 0)) { alert('Informe um valor maior que zero.'); return; }
   if (!venc) { alert('Informe o vencimento.'); return; }
   const campos = { unidade_id:uid, descricao:desc, cat_id:catId, cat_nome:cat ? cat.nome : null, grupo:cat ? cat.grupo : null, valor, vencimento:venc, observacao:obs || null };
+  const arq = CP.editId ? null : cpArquivoDoInput('cp-f-ax-file');
+  const nRep = CP.editId ? 1 : Math.max(1, Math.min(36, parseInt(document.getElementById('cp-f-rep').value) || 1));
+  if (arq && !arq.v.ok) { alert(arq.v.msg); return; }
+  if (arq && nRep > 1) { alert('O anexo só pode ser enviado quando o título não se repete. Salve e anexe depois pelo clipe de cada título.'); return; }
+  let novoTit = null;
   showLoading('Salvando...');
   if (CP.editId) {
     const { error } = await db.from('titulos').update(campos).eq('id', CP.editId);
@@ -7602,9 +7637,14 @@ async function cpSalvar() {
     for (let i = 0; i < n; i++) rows.push({ ...campos, tipo, vencimento:cpAddMes(venc, i), status:'aberto', origem:n > 1 ? 'recorrente' : 'manual' });
     const { data, error } = await db.from('titulos').insert(rows).select();
     hideLoading(); if (error) { alert('Erro: ' + error.message); return; }
-    CACHE.titulos.push(...(data || []));
+    CACHE.titulos.push(...(data || [])); novoTit = (data || [])[0] || null;
   }
   fecharModal('modal-cp'); cpPopularMeses(); cpAtualizarPill(); cpRender();
+  if (arq && novoTit) {
+    showLoading('Anexando documento...');
+    const r = await cpAnexar(novoTit, document.getElementById('cp-f-ax-tipo').value, arq.file); hideLoading();
+    if (r.ok) cpRender(); else showAlert('cp-alert', 'warn', `Título criado, mas o documento não foi anexado: ${cpEsc(r.msg)} Anexe pelo clipe da linha.`);
+  }
 }
 
 // ---------- excluir / reabrir / reativar ----------
@@ -7618,7 +7658,8 @@ function cpExcluir(id) {
       t.status = 'cancelado'; cpAtualizarPill(); cpRender();
     });
   } else {
-    confirmarExclusao(`Excluir o título "${t.descricao}"?`, async () => {
+    confirmarExclusao(`Excluir o título "${t.descricao}"?` + (cpAnexosDe(id).length ? ' Os documentos anexados também serão apagados.' : ''), async () => {
+      await cpRemoverArquivosDoTitulo(id);
       const { error } = await db.from('titulos').delete().eq('id', id);
       if (error) { alert('Erro: ' + error.message); return; }
       CACHE.titulos = CACHE.titulos.filter(x => x.id !== id); cpAtualizarPill(); cpRender();
@@ -7667,6 +7708,8 @@ function cpAbrirBaixa(id) {
   const caixas = CACHE.contas.filter(c => c.unidade_id === t.unidade_id && c.tipo === 'caixa');
   document.getElementById('cp-baixa-corpo').innerHTML = `
     <div class="alert info" style="margin-bottom:10px"><i class="ti ti-receipt-2"></i><span><strong>${cpEsc(t.descricao)}</strong> · ${cpEsc(u ? u.nome : '')} · ${cpBRL(t.valor)} · vence ${fDate(t.vencimento)}</span></div>
+    <div class="cp-sec">Comprovante de pagamento (opcional — PDF ou foto, anexado ao concluir a baixa)</div>
+    <input type="file" id="cp-bx-comp" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,image/*,application/pdf">
     <div class="cp-sec">1) Já está no extrato — vincular ao lançamento</div>
     ${lista.length ? (exatos.length ? '' : '<p style="font-size:12px;color:var(--text3);margin-bottom:6px">Nenhum lançamento com o mesmo valor na janela. Mostrando valores próximos (juros/multa):</p>') + lista.map((l, i) => cpHtmlCand(l, exatos.length && i === 0)).join('')
       : '<p style="font-size:12px;color:var(--text3)">Nenhum lançamento compatível ainda. Importe o OFX da conta e volte, ou registre o pagamento em caixa abaixo.</p>'}
@@ -7685,15 +7728,18 @@ async function cpConciliarSel() {
   if (!r) { alert('Selecione um lançamento.'); return; }
   const t = cpTitulos().find(x => x.id === CP.baixaId), l = CACHE.lancamentos.find(x => x.id === parseInt(r.value));
   if (!t || !l) return;
+  const arq = cpArquivoDoInput('cp-bx-comp'); if (arq && !arq.v.ok) { alert(arq.v.msg); return; }
   showLoading('Vinculando...'); const res = await cpQuitar(t, l, 'conciliado'); hideLoading();
   if (!res.ok) { alert(res.msg); return; }
   fecharModal('modal-cp-baixa'); cpAtualizarPill(); cpRender();
+  await cpAnexarPosBaixa(t, arq);
 }
 async function cpBaixaCaixa() {
   const t = cpTitulos().find(x => x.id === CP.baixaId); if (!t) return;
   const data = document.getElementById('cp-bx-data').value, contaId = parseInt(document.getElementById('cp-bx-conta').value) || null;
   const conta = CACHE.contas.find(c => c.id === contaId);
   if (!data || !conta) { alert('Informe a data e a conta.'); return; }
+  const arq = cpArquivoDoInput('cp-bx-comp'); if (arq && !arq.v.ok) { alert(arq.v.msg); return; }
   showLoading('Registrando...');
   const ins = await db.from('lancamentos').insert({
     unidade_id:t.unidade_id, data, descricao:`${t.descricao} (conta ${t.tipo === 'E' ? 'a receber' : 'a pagar'})`, cat_id:t.cat_id, cat_nome:t.cat_nome, grupo:t.grupo,
@@ -7707,6 +7753,7 @@ async function cpBaixaCaixa() {
     hideLoading(); alert(res.msg); return;
   }
   hideLoading(); fecharModal('modal-cp-baixa'); cpAtualizarPill(); cpRender();
+  await cpAnexarPosBaixa(t, arq);
 }
 
 // ---------- conciliação automática ----------
@@ -7755,6 +7802,156 @@ function cpGerarRecorrentes() {
     }
     hideLoading(); cpPopularMeses(); cpAtualizarPill(); cpRender();
     showAlert('cp-alert', 'success', `${plano.novos.length} título(s) gerado(s) para ${nomeMes(ym)}.`);
+  });
+}
+
+
+// ============================================================
+//  ANEXOS: boleto, nota fiscal e comprovante (PDF ou imagem) — arquivos no Supabase Storage
+// ============================================================
+const CP_BUCKET = 'titulos-anexos';
+const CP_MAX_BYTES = 10 * 1024 * 1024;
+const CP_EXT_OK = { pdf:'application/pdf', jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', webp:'image/webp', heic:'image/heic', heif:'image/heif' };
+const CP_AX_TIPOS = { boleto:'Boleto', nf:'Nota fiscal', comprovante:'Comprovante de pagamento' };
+const cpAnexosDe = id => (CACHE.anexos || []).filter(a => a.titulo_id === id);
+const cpSlug = s => (s || 'arquivo').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 80) || 'arquivo';
+const cpTam = n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+
+async function cpLoadAnexos() {
+  CACHE.anexos = []; CP.anexosDisponivel = true;
+  try {
+    const PAGE = 1000; let from = 0, all = [];
+    while (true) {
+      const { data, error } = await db.from('titulo_anexos').select('*').order('id', { ascending: true }).range(from, from + PAGE - 1);
+      if (error) { CP.anexosDisponivel = false; return; }
+      if (!data || !data.length) break;
+      all = all.concat(data); if (data.length < PAGE) break; from += PAGE;
+    }
+    CACHE.anexos = all;
+  } catch (e) { CP.anexosDisponivel = false; }
+}
+
+function cpValidarArquivo(f) {
+  if (!f) return { ok:false, msg:'Selecione um arquivo.' };
+  const ext = (f.name.split('.').pop() || '').toLowerCase();
+  let mime = CP_EXT_OK[ext];
+  if (!mime && Object.values(CP_EXT_OK).includes(f.type)) mime = f.type;
+  if (!mime) return { ok:false, msg:'Formato não aceito. Use PDF, JPG, PNG ou WEBP.' };
+  if (!(f.size > 0)) return { ok:false, msg:'O arquivo está vazio.' };
+  if (f.size > 40 * 1024 * 1024) return { ok:false, msg:'Arquivo muito grande (máximo 10 MB).' };
+  return { ok:true, mime };
+}
+function cpArquivoDoInput(id) {
+  const el = document.getElementById(id), f = el && el.files && el.files[0];
+  return f ? { file:f, v:cpValidarArquivo(f) } : null;
+}
+// fotos grandes são reduzidas (lado maior 1800 px, JPEG): o comprovante continua legível e o armazenamento rende muito mais
+async function cpComprimirImagem(f, mime) {
+  if (!/^image\/(jpeg|png|webp)$/.test(mime) || f.size < 800 * 1024) return { blob:f, mime, nome:f.name };
+  try {
+    let bmp; try { bmp = await createImageBitmap(f, { imageOrientation:'from-image' }); } catch (e) { bmp = await createImageBitmap(f); }
+    const esc = Math.min(1, 1800 / Math.max(bmp.width, bmp.height)), c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(bmp.width * esc)); c.height = Math.max(1, Math.round(bmp.height * esc));
+    const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.82));
+    if (blob && blob.size < f.size) return { blob, mime:'image/jpeg', nome:f.name.replace(/\.[^.]+$/, '') + '.jpg' };
+  } catch (e) { /* mantém o original */ }
+  return { blob:f, mime, nome:f.name };
+}
+async function cpAnexar(t, tipo, file) {
+  if (!CP.anexosDisponivel) return { ok:false, msg:'Rode o SQL 18_anexos_titulos.sql no Supabase para habilitar anexos.' };
+  const v = cpValidarArquivo(file); if (!v.ok) return v;
+  const c = await cpComprimirImagem(file, v.mime);
+  if (c.blob.size > CP_MAX_BYTES) return { ok:false, msg:'Arquivo maior que 10 MB mesmo após reduzir.' };
+  const caminho = `${t.unidade_id}/${t.id}/${tipo}-${Date.now()}-${cpSlug(c.nome)}`;
+  const up = await db.storage.from(CP_BUCKET).upload(caminho, c.blob, { contentType:c.mime, upsert:false });
+  if (up.error) return { ok:false, msg:'Falha no envio: ' + (up.error.message || up.error) };
+  const ins = await db.from('titulo_anexos').insert({ titulo_id:t.id, tipo, nome_arquivo:c.nome, caminho, mime:c.mime, tamanho:c.blob.size }).select().single();
+  if (ins.error) { await db.storage.from(CP_BUCKET).remove([caminho]); return { ok:false, msg:'Não foi possível registrar o anexo: ' + (ins.error.message || ins.error) }; }
+  CACHE.anexos.push(ins.data);
+  return { ok:true, anexo:ins.data };
+}
+async function cpAnexarPosBaixa(t, arq) {
+  if (!arq) return;
+  showLoading('Anexando comprovante...'); const r = await cpAnexar(t, 'comprovante', arq.file); hideLoading();
+  if (r.ok) cpRender(); else showAlert('cp-alert', 'warn', `Baixa registrada, mas o comprovante não foi anexado: ${cpEsc(r.msg)} Anexe pelo clipe da linha.`);
+}
+async function cpRemoverArquivosDoTitulo(id) {
+  const ax = cpAnexosDe(id); if (!ax.length) return;
+  const r = await db.storage.from(CP_BUCKET).remove(ax.map(a => a.caminho));
+  if (r && r.error) console.error('Anexos não removidos do Storage:', r.error);
+  CACHE.anexos = CACHE.anexos.filter(a => a.titulo_id !== id);          // as linhas saem junto com o título (on delete cascade)
+}
+
+// ---------- tela de documentos do título ----------
+function cpAbrirAnexos(id) { CP.anexoTituloId = id; cpRenderAnexos(); abrirModal('modal-cp-anexos'); }
+function cpRenderAnexos() {
+  const t = cpTitulos().find(x => x.id === CP.anexoTituloId); if (!t) return;
+  const u = CACHE.unidades.find(x => x.id === t.unidade_id);
+  document.getElementById('cp-ax-titulo').textContent = 'Documentos — ' + t.descricao;
+  const corpo = document.getElementById('cp-ax-corpo');
+  if (!CP.anexosDisponivel) {
+    corpo.innerHTML = '<div class="alert warn"><i class="ti ti-alert-triangle"></i><span>Rode o arquivo <code>18_anexos_titulos.sql</code> no Supabase para habilitar anexos.</span></div>'; return;
+  }
+  const lista = cpAnexosDe(t.id).sort((a, b) => a.id - b.id);
+  const grupo = tipo => {
+    const it = lista.filter(a => a.tipo === tipo); if (!it.length) return '';
+    return `<div class="cp-sec">${CP_AX_TIPOS[tipo]}</div>` + it.map(a => `<div class="cp-ax-item">
+      <span style="min-width:0"><i class="ti ti-${/pdf/.test(a.mime || '') ? 'file-type-pdf' : 'photo'}"></i> <strong style="word-break:break-all">${cpEsc(a.nome_arquivo)}</strong>
+        <span class="cp-nil"> · ${cpTam(a.tamanho || 0)}${a.criado_em ? ' · ' + fDate(a.criado_em.slice(0, 10)) : ''}</span></span>
+      <span style="white-space:nowrap"><button class="btn sm" onclick="cpAbrirAnexo(${a.id})">Abrir</button>
+        <button class="btn sm" onclick="cpAbrirAnexo(${a.id}, true)">Baixar</button>
+        <button class="btn sm danger" onclick="cpExcluirAnexo(${a.id})" title="Excluir"><i class="ti ti-trash"></i></button></span></div>`).join('');
+  };
+  const vazio = lista.length ? '' : '<p style="font-size:12.5px;color:var(--text3)">Nenhum documento anexado ainda.</p>';
+  const aceita = '.pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,image/*,application/pdf';
+  corpo.innerHTML = `
+    <div class="alert info" style="margin-bottom:6px"><i class="ti ti-receipt-2"></i><span><strong>${cpEsc(t.descricao)}</strong> · ${cpEsc(u ? u.nome : '')} · ${cpBRL(t.valor)} · vence ${fDate(t.vencimento)}</span></div>
+    ${vazio}${grupo('boleto')}${grupo('nf')}${grupo('comprovante')}
+    <div class="cp-sec">Anexar boleto ou nota fiscal</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <select id="cp-ax-doc-tipo" style="width:140px"><option value="boleto">Boleto</option><option value="nf">Nota fiscal</option></select>
+      <input type="file" id="cp-ax-doc" accept="${aceita}" style="flex:1;min-width:180px">
+      <button class="btn primary" onclick="cpEnviarAnexo('', 'cp-ax-doc')">Enviar</button></div>
+    <div class="cp-sec">Anexar comprovante de pagamento</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="file" id="cp-ax-comp" accept="${aceita}" style="flex:1;min-width:180px">
+      <button class="btn primary" onclick="cpEnviarAnexo('comprovante', 'cp-ax-comp')">Enviar</button></div>
+    <p style="font-size:11px;color:var(--text3);margin-top:10px">PDF, JPG, PNG ou WEBP, até 10 MB. Fotos grandes são reduzidas automaticamente.</p>`;
+}
+async function cpEnviarAnexo(tipoFixo, inputId) {
+  const t = cpTitulos().find(x => x.id === CP.anexoTituloId); if (!t) return;
+  const tipo = tipoFixo || document.getElementById('cp-ax-doc-tipo').value;
+  const arq = cpArquivoDoInput(inputId);
+  if (!arq) { alert('Escolha um arquivo.'); return; }
+  if (!arq.v.ok) { alert(arq.v.msg); return; }
+  showLoading('Enviando...'); const r = await cpAnexar(t, tipo, arq.file); hideLoading();
+  if (!r.ok) { alert(r.msg); return; }
+  cpRenderAnexos(); cpRender();
+}
+async function cpAbrirAnexo(aid, baixar) {
+  const a = (CACHE.anexos || []).find(x => x.id === aid); if (!a) return;
+  showLoading('Abrindo...');
+  const { data, error } = await db.storage.from(CP_BUCKET).createSignedUrl(a.caminho, 120, baixar ? { download:a.nome_arquivo } : undefined);
+  hideLoading();
+  if (error || !data) { alert('Não foi possível abrir o arquivo: ' + (error ? error.message : 'link indisponível')); return; }
+  const url = data.signedUrl || data.signedURL;
+  if (baixar || /heic|heif/.test(a.mime || '')) { const l = document.createElement('a'); l.href = url; l.download = a.nome_arquivo; document.body.appendChild(l); l.click(); l.remove(); return; }
+  if (/^image\//.test(a.mime || '')) {
+    CP.prev = a; document.getElementById('cp-prev-titulo').textContent = a.nome_arquivo;
+    document.getElementById('cp-prev-img').src = url; abrirModal('modal-cp-prev'); return;
+  }
+  window.open(url, '_blank');
+}
+function cpExcluirAnexo(aid) {
+  const a = (CACHE.anexos || []).find(x => x.id === aid); if (!a) return;
+  cpConfirmar('Excluir documento', `Excluir "${a.nome_arquivo}"? O arquivo será apagado definitivamente.`, 'Excluir', async () => {
+    showLoading('Excluindo...');
+    const r = await db.storage.from(CP_BUCKET).remove([a.caminho]);
+    if (r && r.error) { hideLoading(); alert('Erro ao apagar o arquivo: ' + r.error.message); return; }
+    const d = await db.from('titulo_anexos').delete().eq('id', aid);
+    hideLoading(); if (d.error) { alert('Erro: ' + d.error.message); return; }
+    CACHE.anexos = CACHE.anexos.filter(x => x.id !== aid); cpRenderAnexos(); cpRender();
   });
 }
 
