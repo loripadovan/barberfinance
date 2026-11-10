@@ -1600,8 +1600,12 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
       <div class="field-group" id="cp-f-rep-grp"><label>Repetir por quantos meses</label><input type="number" min="1" max="36" value="1" id="cp-f-rep"></div>
       <div class="field-group"><label>Observação</label><input type="text" id="cp-f-obs"></div>
     </div>
-    <div class="field-group" id="cp-f-ax-row"><label>Boleto / NF (opcional — até 2 arquivos, PDF ou foto)</label>
-      <input type="file" id="cp-f-ax-file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,image/*,application/pdf"></div>
+    <div id="cp-f-ax-row">
+      <div class="field-group"><label>Boleto / NF (opcional — até 2 arquivos, PDF ou foto)</label>
+        <input type="file" id="cp-f-ax-file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,image/*,application/pdf"></div>
+      <div class="field-group"><label>Comprovante de pagamento (opcional — 1 arquivo, PDF ou foto)</label>
+        <input type="file" id="cp-f-comp-file" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,image/*,application/pdf"></div>
+    </div>
     <div class="modal-actions">
       <button class="btn" onclick="fecharModal('modal-cp')">Cancelar</button>
       <button class="btn primary" onclick="cpSalvar()">Salvar</button>
@@ -7594,7 +7598,7 @@ function cpNovo() {
   ['cp-f-desc', 'cp-f-valor', 'cp-f-obs'].forEach(i => document.getElementById(i).value = '');
   document.getElementById('cp-f-venc').value = cpHoje();
   document.getElementById('cp-f-rep').value = 1; document.getElementById('cp-f-rep-grp').style.display = '';
-  document.getElementById('cp-f-ax-file').value = ''; document.getElementById('cp-f-ax-row').style.display = '';
+  document.getElementById('cp-f-ax-file').value = ''; document.getElementById('cp-f-comp-file').value = ''; document.getElementById('cp-f-ax-row').style.display = '';
   abrirModal('modal-cp');
 }
 function cpEditar(id) {
@@ -7620,10 +7624,11 @@ async function cpSalvar() {
   if (!venc) { alert('Informe o vencimento.'); return; }
   const campos = { unidade_id:uid, descricao:desc, cat_id:catId, cat_nome:cat ? cat.nome : null, grupo:cat ? cat.grupo : null, valor, vencimento:venc, observacao:obs || null };
   const arqs = CP.editId ? [] : cpArquivosDoInput('cp-f-ax-file');
+  const comp = CP.editId ? null : cpArquivoDoInput('cp-f-comp-file');
   const nRep = CP.editId ? 1 : Math.max(1, Math.min(36, parseInt(document.getElementById('cp-f-rep').value) || 1));
   if (arqs.length > CP_LIMITE.doc) { alert(`Boleto/NF aceita no máximo ${CP_LIMITE.doc} arquivos.`); return; }
-  const invalido = arqs.find(a => !a.v.ok); if (invalido) { alert(invalido.v.msg); return; }
-  if (arqs.length && nRep > 1) { alert('O anexo só pode ser enviado quando o título não se repete. Salve e anexe depois, pelo botão Boleto/NF de cada título.'); return; }
+  const invalido = [...arqs, ...(comp ? [comp] : [])].find(a => !a.v.ok); if (invalido) { alert(invalido.v.msg); return; }
+  if ((arqs.length || comp) && nRep > 1) { alert('Os anexos só podem ser enviados quando o título não se repete. Salve e anexe depois, pelos botões Boleto/NF e Comprovante de cada título.'); return; }
   let novoTit = null;
   showLoading('Salvando...');
   if (CP.editId) {
@@ -7638,11 +7643,12 @@ async function cpSalvar() {
     CACHE.titulos.push(...(data || [])); novoTit = (data || [])[0] || null;
   }
   fecharModal('modal-cp'); cpPopularMeses(); cpAtualizarPill(); cpRender();
-  if (arqs.length && novoTit) {
+  if ((arqs.length || comp) && novoTit) {
     showLoading('Anexando documentos...'); const falhas = [];
     for (const a of arqs) { const r = await cpAnexar(novoTit, 'documento', a.file); if (!r.ok) falhas.push(r.msg); }
+    if (comp) { const r = await cpAnexar(novoTit, 'comprovante', comp.file); if (!r.ok) falhas.push(r.msg); }
     hideLoading(); cpRender();
-    if (falhas.length) showAlert('cp-alert', 'warn', `Título criado, mas ${falhas.length} documento(s) não foram anexados: ${cpEsc(falhas[0])} Use o botão Boleto/NF da linha.`);
+    if (falhas.length) showAlert('cp-alert', 'warn', `Título criado, mas ${falhas.length} arquivo(s) não foram anexados: ${cpEsc(falhas[0])} Use os botões Boleto/NF e Comprovante da linha.`);
   }
 }
 
