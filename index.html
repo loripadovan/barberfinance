@@ -320,6 +320,7 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
 </div>
 
 <div class="app">
+  <div class="m-backdrop" id="m-backdrop" onclick="mobileMenu(false)"></div>
   <!-- SIDEBAR -->
   <div class="sidebar">
     <button class="sidebar-toggle" onclick="toggleSidebar()" id="sidebar-toggle-btn" title="Recolher menu">
@@ -354,6 +355,7 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
   </div>
 
   <div class="main">
+    <div class="m-bar"><button onclick="mobileMenu(true)" aria-label="Abrir menu"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><span class="m-title" id="m-title">Dashboard</span></div>
 
     <!-- ==================== DASHBOARD ==================== -->
     <div id="page-dashboard" class="page active">
@@ -1973,6 +1975,93 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
 .cp-cand input{width:auto;margin-top:3px}
 .cp-sec{font-size:12px;font-weight:600;color:var(--text2);margin:14px 0 6px}
 .cp-ax-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:5px;font-size:12.5px}
+
+/* ===== MOBILE (celular) ===== */
+.m-bar{display:none}
+.m-backdrop{display:none}
+@media(max-width:800px){
+  html,body{overflow-x:hidden}
+  .app{height:100vh;height:100dvh}
+  .m-bar{display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:30;height:48px;padding:0 .75rem;background:var(--bg2);border-bottom:1px solid var(--border)}
+  .m-bar button{border:none;background:none;color:var(--text);font-size:24px;display:flex;align-items:center;justify-content:center;width:40px;height:40px;cursor:pointer;padding:0}
+  .m-bar .m-title{font-size:14px;font-weight:600;color:var(--text)}
+  .sidebar,.sidebar.collapsed{position:fixed;top:0;left:0;bottom:0;width:260px;min-width:260px;max-width:82vw;z-index:300;transform:translateX(-105%);transition:transform .22s ease;overflow-y:auto;box-shadow:none}
+  .sidebar.m-open{transform:translateX(0);box-shadow:4px 0 24px rgba(0,0,0,.35)}
+  .sidebar.collapsed .logo-title,.sidebar.collapsed .logo-sub,.sidebar.collapsed .nav-sec,.sidebar.collapsed .nav-item span,.sidebar.collapsed .nav-item > span{display:revert}
+  .sidebar.collapsed .nav-badge{display:inline-block}
+  .sidebar.collapsed .nav-item{justify-content:flex-start;padding:8px 1rem}
+  .sidebar.collapsed .nav-item i{font-size:inherit}
+  .sidebar-toggle{display:none!important}
+  .nav-item{padding-top:11px;padding-bottom:11px}
+  .m-backdrop.show{display:block;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:250}
+  .main{width:100%}
+  .content{padding:.75rem}
+  .topbar,.topbar[style]{top:48px;padding:.625rem .75rem;flex-wrap:wrap}
+  .topbar-right{width:100%}
+  .topbar select,.topbar-right select,#page-contaspagar .content>div select{width:auto!important;flex:1 1 calc(50% - 6px);min-width:0;max-width:100%}
+  #page-lancamentos .topbar,#page-dre .topbar{position:static}
+  .topbar>div[style*="display:flex"]{max-width:100%;flex-wrap:wrap}
+  .topbar div[style*="border-radius"][style*="height"]{width:100%;max-width:100%;box-sizing:border-box}
+  .topbar div[style*="height"] input[type=date]{flex:1 1 0;width:0!important;min-width:0}
+  #lanc-body td:nth-child(6) select{width:100%!important}
+    .topbar div[style*="min-width:180px"]{min-width:0!important;flex:1 1 100%!important}
+  .topbar-right .btn{flex:1 1 auto;justify-content:center}
+  select,input[type=text],input[type=number],input[type=date],input[type=password],textarea{font-size:16px!important}
+  .btn{min-height:36px}
+  .stat-grid{grid-template-columns:repeat(2,1fr);gap:8px}
+  .stat{padding:.625rem .75rem}
+  .stat-value{font-size:16px}
+  .meta-grid{grid-template-columns:1fr}
+  .card{padding:.875rem}
+  .tabs{overflow-x:auto;white-space:nowrap}
+  .modal-overlay{align-items:stretch;justify-content:stretch}
+  .modal,.modal[style]{width:100%!important;max-width:100%!important;height:100%;max-height:100%!important;border-radius:0;border:none;padding:1rem;display:flex;flex-direction:column}
+  .modal-actions{position:sticky;bottom:-1rem;background:var(--bg);padding:.75rem 0;margin-top:auto;flex-wrap:wrap}
+  .modal-actions .btn{flex:1 1 auto;justify-content:center}
+  .cp-wrap{max-height:calc(100dvh - 300px);min-height:240px}
+  /* Lançamentos viram cartões */
+  #page-lancamentos .content>div[style*="overflow-x"]{overflow:visible!important}
+  #page-lancamentos table,#page-lancamentos tbody{display:block;width:100%}
+  #page-lancamentos thead{display:none}
+  #lanc-body tr{display:grid;grid-template-columns:auto 1fr auto;gap:4px 8px;align-items:center;padding:10px;margin-bottom:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg)}
+  #lanc-body td{display:block;padding:0!important;border:none!important;min-width:0!important;max-width:none!important;width:auto!important;text-align:left}
+  #lanc-body td:nth-child(1){grid-column:1;grid-row:1}
+  #lanc-body td:nth-child(2){grid-column:2;grid-row:1;font-size:12px;color:var(--text2)}
+  #lanc-body td:nth-child(9){grid-column:3;grid-row:1;text-align:right!important;font-weight:600;font-size:15px}
+  #lanc-body td:nth-child(4){grid-column:1/-1;grid-row:2}
+  #lanc-body td:nth-child(3){grid-column:1/3;grid-row:3}
+  #lanc-body td:nth-child(8){grid-column:3;grid-row:3;text-align:right}
+  #lanc-body td:nth-child(5){grid-column:1/-1;grid-row:4}
+  #lanc-body td:nth-child(6){grid-column:1/-1;grid-row:5}
+  #lanc-body td:nth-child(7){grid-column:1/-1;grid-row:6}
+  #lanc-body td:nth-child(10){grid-column:1/-1;grid-row:7}
+  #lanc-body td:nth-child(10):empty{display:none}
+  #lanc-body td:nth-child(7){font-size:11px}
+  /* Contas a Pagar: lista vira cartões */
+  .cp-wrap-lista{max-height:none;overflow:visible;border:none}
+  .cp-lista,.cp-lista tbody,.cp-lista tfoot{display:block;width:100%}
+  .cp-lista thead{display:none}
+  .cp-lista tbody tr{display:grid;grid-template-columns:1fr auto;gap:5px 10px;align-items:center;padding:10px;margin-bottom:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg)}
+  .cp-lista td{display:block;padding:0!important;border:none!important;white-space:normal!important;min-width:0!important;text-align:left!important;background:transparent!important}
+  .cp-lista td:nth-child(2){grid-column:1;grid-row:1;font-weight:600;font-size:13.5px}
+  .cp-lista td:nth-child(5){grid-column:2;grid-row:1;text-align:right!important;font-weight:600;font-size:15px}
+  .cp-lista td:nth-child(3){grid-column:1;grid-row:2;color:var(--text2);font-size:12px}
+  .cp-lista td:nth-child(1){grid-column:2;grid-row:2;text-align:right!important;font-size:12px;color:var(--text2)}
+  .cp-lista td:nth-child(4){grid-column:1;grid-row:3}
+  .cp-lista td:nth-child(6){grid-column:2;grid-row:3;text-align:right!important}
+  .cp-lista td:nth-child(7),.cp-lista td:nth-child(8){grid-row:4;display:flex!important;align-items:center;gap:6px;font-size:11px;color:var(--text2);text-align:left!important}
+  .cp-lista td:nth-child(7){grid-column:1}.cp-lista td:nth-child(8){grid-column:2}
+  .cp-lista td:nth-child(7)::before{content:"Boleto/NF:"}
+  .cp-lista td:nth-child(8)::before{content:"Comprov.:"}
+  .cp-lista td:nth-child(9){grid-column:1/-1;grid-row:5;display:flex!important;gap:6px;justify-content:flex-end;flex-wrap:wrap;padding-top:6px!important;border-top:1px solid var(--border)!important}
+  .cp-lista tfoot tr{display:flex;justify-content:space-between;padding:8px 4px;font-weight:600}
+  .cp-lista tfoot td{padding:0!important;border:none!important;position:static}
+  .cp-lista tfoot td:last-child{display:none}
+  /* DRE e demais tabelas: rolagem horizontal suave */
+  #dre-body,#page-dre .card{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  #dre-body table{min-width:520px}
+  .chart-area{gap:3px}
+}
 </style>
 
 <script>
@@ -2460,11 +2549,18 @@ const PAGE_RENDERS = {
   calendario: renderCalendario,
   relatorios: initRelatorios,
 };
+function mobileMenu(abrir){
+  const sb=document.querySelector('.sidebar'), bd=document.getElementById('m-backdrop');
+  sb.classList.toggle('m-open',!!abrir); bd.classList.toggle('show',!!abrir);
+}
 function showPage(id) {
+  mobileMenu(false);
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const pg = document.getElementById('page-'+id); if(pg) pg.classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n => { if((n.getAttribute('onclick')||'').includes("'"+id+"'")) n.classList.add('active'); });
+  const mt=document.getElementById('m-title'), ni=document.querySelector('.nav-item.active');
+  if(mt&&ni) mt.textContent=ni.textContent.replace(/\d+\s*$/,'').trim();
   if(PAGE_RENDERS[id]) PAGE_RENDERS[id]();
 }
 
@@ -7532,7 +7628,7 @@ function cpRenderLista() {
       <td class="c">${cpBotaoAnexo(t.id, 'doc')}</td><td class="c">${cpBotaoAnexo(t.id, 'comp')}</td>
       <td style="text-align:right">${acoes}</td></tr>`;
   }).join('');
-  corpo.innerHTML = `<div class="cp-wrap"><table class="cp-table">
+  corpo.innerHTML = `<div class="cp-wrap cp-wrap-lista"><table class="cp-table cp-lista">
     <thead><tr><th class="l">Vencimento</th><th class="l">Descrição</th><th class="l">Unidade</th><th class="l">Categoria</th><th>Valor</th><th class="l">Situação</th><th class="c">Boleto / NF</th><th class="c">Comprovante</th><th></th></tr></thead>
     <tbody>${linhas}</tbody>
     <tfoot><tr><td class="l" colspan="4">${lista.length} título${lista.length > 1 ? 's' : ''}</td><td>${fBRL(soma(lista))}</td><td colspan="4"></td></tr></tfoot>
