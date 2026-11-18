@@ -1969,6 +1969,8 @@ code{background:var(--bg2);border:1px solid var(--border);padding:1px 6px;border
 .cp-table tr.fds td{color:var(--text3)}
 .cp-table tr.neg td.acum{color:var(--r1);font-weight:600}
 .cp-table tfoot td{position:sticky;bottom:0;background:var(--bg2);font-weight:600;border-top:1px solid var(--border)}
+.cp-selbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px;font-size:12.5px}
+.cp-selbar label,.cp-chk-l{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
 .cp-nil{color:var(--text3)}
 .cp-cand{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;cursor:pointer;font-size:12.5px}
 .cp-cand:hover{background:var(--bg2)}
@@ -7352,7 +7354,7 @@ function entrarNoSistema() {
 //   • Saldo parte do saldo REAL das contas bancárias no início do mês (saldo_inicial + lançamentos vinculados).
 //   • Título vencido e não pago é projetado para HOJE (ainda vai sair/entrar do caixa).
 // ============================================================
-const CP = { aba:'pagar', disponivel:true, erro:'', hoje:null, baixaId:null, editId:null, props:[] };
+const CP = { aba:'pagar', disponivel:true, erro:'', hoje:null, baixaId:null, editId:null, props:[], sel:new Set(), visiveis:[] };
 
 // ---------- utilidades ----------
 const cpNorm = s => (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
@@ -7606,6 +7608,9 @@ function cpRenderLista() {
       <span style="font-size:12px">Use <strong>Gerar do Orçamento</strong> para criar as despesas fixas do mês ou <strong>Novo título</strong>.</span></div>`;
     return;
   }
+  const idsVis = new Set(lista.map(t => t.id));
+  CP.sel = new Set([...CP.sel].filter(i => idsVis.has(i)));
+  CP.visiveis = lista.map(t => t.id);
   const linhas = lista.map(t => {
     const s = cpStatus(t, hoje), u = CACHE.unidades.find(x => x.id === t.unidade_id), dias = cpDiff(hoje, t.vencimento);
     const badge = s === 'vencido' ? `<span class="badge r">Vencido há ${-dias} d</span>`
@@ -7619,7 +7624,7 @@ function cpRenderLista() {
       : s === 'pago' ? `<button class="btn sm" onclick="cpReabrir(${t.id})">Reabrir</button>`
       : `<button class="btn sm" onclick="cpReativar(${t.id})">Reativar</button>`;
     return `<tr>
-      <td class="l">${fDate(t.vencimento)}</td>
+      <td class="l" style="white-space:nowrap"><label class="cp-chk-l"><input type="checkbox" class="cp-chk" data-id="${t.id}" ${CP.sel.has(t.id)?'checked':''} onchange="cpSelUm(${t.id},this.checked)" style="width:auto"> ${fDate(t.vencimento)}</label></td>
       <td class="l wrap" style="min-width:140px">${cpEsc(t.descricao)}${t.origem === 'orcamento' ? ' <span class="badge gr" title="Gerado do Orçamento/PE">orç.</span>' : ''}</td>
       <td class="l">${cpEsc(u ? u.nome : '—')}</td>
       <td class="l wrap">${t.cat_nome ? cpEsc(t.cat_nome) : '<span class="badge a">sem categoria</span>'}</td>
@@ -7628,7 +7633,11 @@ function cpRenderLista() {
       <td class="c">${cpBotaoAnexo(t.id, 'doc')}</td><td class="c">${cpBotaoAnexo(t.id, 'comp')}</td>
       <td style="text-align:right">${acoes}</td></tr>`;
   }).join('');
-  corpo.innerHTML = `<div class="cp-wrap cp-wrap-lista"><table class="cp-table cp-lista">
+  corpo.innerHTML = `<div class="cp-selbar">
+    <label><input type="checkbox" id="cp-chk-all" onchange="cpSelTodos(this.checked)" ${CP.sel.size && CP.sel.size === lista.length ? 'checked' : ''} style="width:auto"> Selecionar todos</label>
+    <span id="cp-sel-n" style="color:var(--text2);font-size:12px">${CP.sel.size ? CP.sel.size + ' selecionado' + (CP.sel.size > 1 ? 's' : '') : ''}</span>
+    <button class="btn sm danger" id="cp-btn-excl" style="${CP.sel.size ? '' : 'display:none'}" onclick="cpExcluirSelecionados()"><i class="ti ti-trash"></i> Excluir selecionados (${CP.sel.size})</button>
+  </div><div class="cp-wrap cp-wrap-lista"><table class="cp-table cp-lista">
     <thead><tr><th class="l">Vencimento</th><th class="l">Descrição</th><th class="l">Unidade</th><th class="l">Categoria</th><th>Valor</th><th class="l">Situação</th><th class="c">Boleto / NF</th><th class="c">Comprovante</th><th></th></tr></thead>
     <tbody>${linhas}</tbody>
     <tfoot><tr><td class="l" colspan="4">${lista.length} título${lista.length > 1 ? 's' : ''}</td><td>${fBRL(soma(lista))}</td><td colspan="4"></td></tr></tfoot>
@@ -7749,6 +7758,40 @@ async function cpSalvar() {
 }
 
 // ---------- excluir / reabrir / reativar ----------
+
+function cpSelUm(id, on) { if (on) CP.sel.add(id); else CP.sel.delete(id); cpRender(); }
+function cpSelTodos(on) { CP.sel = on ? new Set(CP.visiveis || []) : new Set(); cpRender(); }
+function cpExcluirSelecionados() {
+  const itens = [...CP.sel].map(id => cpTitulos().find(x => x.id === id)).filter(Boolean);
+  if (!itens.length) return;
+  const pagos = itens.filter(t => t.status === 'pago');
+  const cancelar = itens.filter(t => t.status !== 'pago' && t.origem === 'orcamento');
+  const excluir = itens.filter(t => t.status !== 'pago' && t.origem !== 'orcamento');
+  if (!cancelar.length && !excluir.length) { alert('Os títulos selecionados estão quitados. Reabra cada um antes de excluir.'); return; }
+  let msg = '';
+  if (excluir.length) msg += `${excluir.length} título(s) serão excluídos definitivamente` + (excluir.some(t => cpAnexosDe(t.id).length) ? ', junto com os documentos anexados' : '') + '. ';
+  if (cancelar.length) msg += `${cancelar.length} título(s) do Orçamento/PE serão marcados como cancelados (não são recriados ao gerar o mês). `;
+  if (pagos.length) msg += `${pagos.length} quitado(s) serão ignorados (reabra antes para excluir).`;
+  cpConfirmar('Excluir selecionados', msg.trim(), 'Confirmar', async () => {
+    showLoading('Excluindo...');
+    try {
+      if (cancelar.length) {
+        const ids = cancelar.map(t => t.id);
+        const r = await db.from('titulos').update({ status:'cancelado' }).in('id', ids);
+        if (r.error) throw r.error;
+        cancelar.forEach(t => { t.status = 'cancelado'; });
+      }
+      if (excluir.length) {
+        const ids = excluir.map(t => t.id);
+        for (const t of excluir) await cpRemoverArquivosDoTitulo(t.id);
+        const r = await db.from('titulos').delete().in('id', ids);
+        if (r.error) throw r.error;
+        CACHE.titulos = CACHE.titulos.filter(x => !ids.includes(x.id));
+      }
+      CP.sel = new Set(); cpAtualizarPill(); hideLoading(); cpRender();
+    } catch (e) { hideLoading(); alert('Erro: ' + (e.message || e)); cpRecarregar && cpRecarregar(); }
+  });
+}
 function cpExcluir(id) {
   const t = cpTitulos().find(x => x.id === id); if (!t) return;
   if (t.status === 'pago') { alert('Reabra o título antes de excluir.'); return; }
